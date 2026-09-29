@@ -10,7 +10,11 @@ import ConfirmDialogProvider from '@/components/ConfirmDialogProvider';
 
 export const metadata = {
   title: 'Xrynex Trading OS',
-  description: 'Xrynex Trading OS — learn, plan, execute, and improve your trading process.'
+  description: 'Xrynex Trading OS — learn, plan, execute, and improve your trading process.',
+  icons: {
+    icon: '/xrynex-logo.png',
+    apple: '/xrynex-logo.png',
+  },
 };
 
 export default async function RootLayout({ children }) {

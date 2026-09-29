@@ -12,13 +12,20 @@ function mondaySixAm(date) {
 
 export default function WeeklyCalendarReminder() {
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [calendarLoaded, setCalendarLoaded] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     const load = () => fetch('/api/calendar-screenshot', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
-      .then((data) => setUpdatedAt(data?.updated_at || null))
-      .catch(() => setUpdatedAt(null));
+      .then((data) => {
+        setUpdatedAt(data?.updated_at || null);
+        setCalendarLoaded(true);
+      })
+      .catch(() => {
+        setUpdatedAt(null);
+        setCalendarLoaded(false);
+      });
     load();
     window.addEventListener('calendar-updated', load);
     const timer = window.setInterval(() => {
@@ -33,7 +40,7 @@ export default function WeeklyCalendarReminder() {
 
   const weekStart = mondaySixAm(now);
   const showReminder = now >= weekStart && (!updatedAt || new Date(updatedAt) < weekStart);
-  if (!showReminder) return null;
+  if (!calendarLoaded || !showReminder) return null;
 
   return (
     <div role="alert" className="mb-3 flex items-center gap-3 rounded-xl border border-loss/50 bg-loss/15 px-4 py-3 text-[13px] font-medium text-loss">
