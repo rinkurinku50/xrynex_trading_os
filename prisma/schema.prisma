@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Strategy {
+  id          Int      @id @default(autoincrement())
+  code        String
+  name        String
+  status      String   @default("Draft")
+  description String?
+  rules       String?
+  driveUrl    String?  @map("drive_url")
+  showInNav   Boolean  @default(false) @map("show_in_nav")
+  isFavorite  Boolean  @default(false) @map("is_favorite")
+  ownerId     String?  @map("owner_id")
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  @@index([ownerId, code])
+  @@map("strategies")
+}
+
+model Idea {
+  id        Int      @id @default(autoincrement())
+  title     String
+  tag       String   @default("Idea")
+  note      String?
+  status    String   @default("Open")
+  ideaDate  DateTime @map("idea_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  ownerId   String?  @map("owner_id")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, ideaDate])
+  @@map("ideas")
+}
+
+model Video {
+  id        Int      @id @default(autoincrement())
+  title     String
+  creator   String?
+  topic     String?
+  driveUrl  String?  @map("drive_url")
+  notes     String?
+  isFavorite Boolean @default(false) @map("is_favorite")
+  watchedOn DateTime @map("watched_on") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  ownerId   String?  @map("owner_id")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, watchedOn])
+  @@map("videos")
+}
+
+model Chart {
+  id        Int      @id @default(autoincrement())
+  title     String
+  driveUrl  String   @map("drive_url")
+  instrument String?
+  note      String?
+  chartDate DateTime @map("chart_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  ownerId    String? @map("owner_id")
+  owner      User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, chartDate])
+  @@map("charts")
+}
+
+model Concept {
+  id        Int    @id @default(autoincrement())
+  name      String
+  subtitle  String?
+  body      String?
+  sortOrder Int    @default(0) @map("sort_order")
+  showInNav Boolean  @default(false) @map("show_in_nav")
+  isFavorite Boolean @default(false) @map("is_favorite")
+  icon      String   @default("book")
+  ownerId   String?  @map("owner_id")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, sortOrder])
+  @@map("concepts")
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  done      Boolean  @default(false)
+  priority  String   @default("Medium")
+  taskDate  DateTime @map("task_date") @db.Date
+  completedAt DateTime? @map("completed_at")
+  removedAt DateTime? @map("removed_at")
+  ownerId   String?  @map("owner_id")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, taskDate, removedAt])
+  @@map("tasks")
+}
+
+model Focus {
+  id         Int      @id @default(autoincrement())
+  instrument String?
+  session    String?
+  timeframe  String?
+  strategy   String?
+  bias       String   @default("Neutral")
+  daysDone   Int      @default(0) @map("days_done")
+  daysTotal  Int      @default(5) @map("days_total")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+  ownerId    String?  @unique @map("owner_id")
+  owner      User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("focus")
+}
+
+model DriveFolder {
+  id        Int    @id @default(autoincrement())
+  name      String
+  driveUrl  String @map("drive_url")
+  ownerId   String? @map("owner_id")
+  owner     User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("drive_folders")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  passwordHash    String?   @map("password_hash")
+  isAdmin         Boolean   @default(false) @map("is_admin")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  legacySubject   String?   @unique @map("legacy_subject")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  sessions        AuthSession[]
+  ssoCodes        SsoLoginCode[]
+  strategies      Strategy[]
+  ideas           Idea[]
+  videos          Video[]
+  charts          Chart[]
+  concepts        Concept[]
+  tasks           Task[]
+  focus           Focus?
+  driveFolders    DriveFolder[]
+  calendarScreenshot EconomicCalendarScreenshot?
+  economicNews    EconomicNews[]
+  legacyDataClaim LegacyDataClaim?
+
+  @@map("users")
+}
+
+model AppSetting {
+  id                  Int      @id @default(1)
+  publicSignupEnabled Boolean  @default(false) @map("public_signup_enabled")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model AuthSession {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("auth_sessions")
+}
+
+model SsoLoginCode {
+  id        String    @id @default(cuid())
+  codeHash  String    @unique @map("code_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("sso_login_codes")
+}
+
+model SsoAssertionUse {
+  jti       String   @id
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("sso_assertion_uses")
+}
+
+model AuthRateLimit {
+  key              String    @id
+  attempts          Int       @default(0)
+  windowStartedAt  DateTime  @default(now()) @map("window_started_at")
+  blockedUntil     DateTime? @map("blocked_until")
+
+  @@map("auth_rate_limits")
+}
+
+model EconomicCalendarScreenshot {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String?  @map("image_url")
+  overlayOpacity Int  @default(15) @map("overlay_opacity")
+  ownerId   String?  @unique @map("owner_id")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("economic_calendar_screenshot")
+}
+
+model EconomicNews {
+  id        Int      @id @default(autoincrement())
+  title     String
+  priority  String   @default("Medium")
+  eventAt   String?  @map("event_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  ownerId   String?  @map("owner_id")
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+  @@map("economic_news")
+}
+
+model LegacyDataClaim {
+  id        Int      @id @default(1)
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("legacy_data_claim")
+}

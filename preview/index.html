@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xrynex Trading OS — design preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0e13; --panel:#111820; --panel2:#161f29; --line:#1f2b37;
+  --muted:#7b8b9c; --text:#d8e2ec; --white:#fff;
+  --win:#22c55e; --loss:#ef4444; --be:#94a3b8; --gold:#eab308; --info:#3b82f6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:var(--text);
+  background:radial-gradient(900px 500px at 78% -8%,rgba(34,197,94,.07),transparent 60%),var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--win);outline-offset:2px}
+
+.shell{display:flex;min-height:100%}
+
+/* ---------- sidebar ---------- */
+.sidebar{
+  width:260px;flex-shrink:0;border-right:1px solid var(--line);
+  background:rgba(17,24,32,.7);padding:16px 12px;
+  display:flex;flex-direction:column;gap:16px;
+  position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;
+}
+.brand{display:flex;align-items:center;gap:8px;padding:0 8px;font-size:17px;font-weight:600;color:var(--white)}
+.dot{width:20px;height:20px;border-radius:999px;background:var(--loss)}
+.field{
+  width:100%;border:1px solid var(--line);background:var(--ink);color:var(--text);
+  border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;
+}
+.field::placeholder{color:rgba(123,139,156,.6)}
+.nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.nav a{display:flex;align-items:center;gap:10px;border-radius:8px;padding:8px 12px;font-size:14px;color:rgba(216,226,236,.8)}
+.nav a:hover{background:var(--panel2);color:var(--text)}
+.nav a.active{background:#17324a;color:var(--white)}
+.nav .sub{margin-left:12px;padding-left:8px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.nav .group{font-weight:600;color:var(--text)}
+.nav-sep{height:1px;background:var(--line);margin:6px 4px}
+.quote{border-top:1px solid var(--line);padding:16px 8px 0;margin:0}
+.quote blockquote{margin:0;font-family:Caveat,cursive;font-size:19px;line-height:1.2;color:rgba(216,226,236,.9)}
+.quote figcaption{margin-top:4px;font-size:12px;color:var(--muted)}
+
+/* ---------- main ---------- */
+main{flex:1;min-width:0;padding:16px;display:flex;flex-direction:column;gap:16px}
+@media (min-width:1024px){main{padding:24px}}
+
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:12px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel-title{display:flex;align-items:center;gap:8px;margin:0;font-size:15px;font-weight:600;color:var(--text)}
+.panel-body{padding:16px}
+.viewall{font-size:12px;color:var(--muted)}
+.viewall:hover{color:var(--win)}
+
+.hero{
+  border:1px solid var(--line);border-radius:12px;padding:28px 24px;overflow:hidden;
+  background:linear-gradient(90deg,#0e1620,#101b26 55%,#0d1a17);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:24px;
+}
+.hero h1{margin:0;font-family:Caveat,cursive;font-size:52px;font-weight:700;letter-spacing:.02em;color:var(--white);line-height:1}
+.hero nav{display:flex;gap:16px;margin-top:8px;font-size:14px;color:rgba(216,226,236,.8)}
+.hero nav a:hover{color:var(--win)}
+.hero nav span{color:var(--line)}
+.hero figure{margin:0;max-width:22rem;text-align:right}
+.hero blockquote{margin:0;font-size:14px;line-height:1.6;color:rgba(216,226,236,.9)}
+.hero figcaption{margin-top:4px;font-size:12px;color:var(--muted)}
+
+.grid{display:grid;gap:16px}
+@media (min-width:900px){.grid.c4{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:1400px){.grid.c4{grid-template-columns:repeat(4,1fr)}.span2{grid-column:span 2}}
+
+/* ---------- bits ---------- */
+.label{font-size:13px;color:var(--muted)}
+.value{font-size:13px;font-weight:500;color:var(--text);text-align:right}
+.row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
+.stat{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.pos{color:var(--win)} .neg{color:var(--loss)} .neu{color:var(--be)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.divider{border-top:1px solid var(--line);margin-top:16px;padding-top:12px}
+
+.badge{display:inline-flex;border-radius:6px;border:1px solid;padding:1px 8px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-win{background:rgba(34,197,94,.15);color:var(--win);border-color:rgba(34,197,94,.3)}
+.b-loss{background:rgba(239,68,68,.15);color:var(--loss);border-color:rgba(239,68,68,.3)}
+.b-be{background:rgba(148,163,184,.15);color:var(--be);border-color:rgba(148,163,184,.3)}
+.b-info{background:rgba(59,130,246,.15);color:var(--info);border-color:rgba(59,130,246,.3)}
+.b-gold{background:rgba(234,179,8,.15);color:var(--gold);border-color:rgba(234,179,8,.3)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  border-radius:8px;padding:10px 12px;font:inherit;font-size:13px;font-weight:500;
+  cursor:pointer;transition:background .15s,border-color .15s;width:100%;
+}
+.btn:hover{background:#1b2833;border-color:rgba(34,197,94,.5)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.bar{height:8px;border-radius:999px;background:var(--panel2);margin-top:8px}
+.bar>span{display:block;height:8px;border-radius:999px;background:var(--win)}
+
+table{width:100%;border-collapse:collapse}
+th{padding:8px 10px;text-align:left;font-size:12px;font-weight:500;color:var(--muted)}
+td{padding:10px;font-size:13px;border-top:1px solid rgba(31,43,55,.7)}
+tbody tr:hover{background:rgba(22,31,41,.6)}
+.right{text-align:right}
+
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+ul.list li:first-child{border-top:0}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sm{font-size:12px;color:var(--muted)}
+
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.checks label{display:flex;align-items:center;gap:12px;cursor:pointer;font-size:13px}
+.checks input{width:16px;height:16px;accent-color:var(--win)}
+.checks input:checked + span{color:var(--muted);text-decoration:line-through}
+
+.thumbs{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (min-width:1100px){.thumbs{grid-template-columns:repeat(4,1fr)}}
+.thumb{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--ink)}
+.thumb .img{height:96px;position:relative;overflow:hidden}
+.thumb figcaption{padding:8px}
+.drive-note{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--muted);text-align:center;padding:0 8px;
+}
+
+.folders{list-style:none;margin:0;padding:0}
+.folders a{display:flex;align-items:center;gap:8px;border-radius:8px;padding:8px;font-size:13px}
+.folders a:hover{background:var(--panel2)}
+
+footer.strip{
+  border:1px solid var(--line);background:var(--panel);border-radius:12px;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;
+  padding:12px 20px;font-size:13px;color:var(--muted);
+}
+
+.banner{
+  border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);border-radius:12px;
+  padding:12px 16px;font-size:13px;color:var(--text);
+}
+.banner strong{color:var(--win);font-weight:600}
+
+/* mobile */
+.menu-btn{display:none}
+@media (max-width:880px){
+  .shell{flex-direction:column}
+  .sidebar{width:100%;position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+  .sidebar .nav,.sidebar .quote,.sidebar .field{display:none}
+  .sidebar.open .nav,.sidebar.open .quote,.sidebar.open .field{display:flex}
+  .sidebar.open .nav{flex-direction:column}
+  .menu-btn{display:inline-flex;margin-left:auto;width:auto;padding:6px 10px}
+  .hero{padding:20px 16px}
+  .hero h1{font-size:38px}
+  .hero figure{text-align:left;max-width:none}
+  .grid4,.grid3{grid-template-columns:repeat(2,1fr)}
+  .table-wrap{overflow-x:auto}
+  table{min-width:520px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      Xrynex Trading OS
+      <button class="btn menu-btn" id="menu" aria-expanded="false" aria-controls="sidebar">Menu</button>
+    </div>
+    <input class="field" type="search" placeholder="Search" aria-label="Search the workspace">
+    <nav class="nav">
+      <a href="#" class="active">🏠 Dashboard</a>
+      <a href="#" class="group">📚 Knowledge Base</a>
+      <div class="sub">
+        <a href="#">📈 ICT Concepts</a>
+        <a href="#">🟩 Market Structure</a>
+        <a href="#">💧 Liquidity</a>
+        <a href="#">🟦 FVG</a>
+        <a href="#">🧱 OB (Order Block)</a>
+        <a href="#">🔷 IFVG</a>
+        <a href="#">📐 MSS</a>
+        <a href="#">🔀 CISD</a>
+        <a href="#">📊 PDH / PDL</a>
+        <a href="#">🗓 PWH / PWL</a>
+        <a href="#">🕐 Sessions</a>
+      </div>
+      <div class="nav-sep"></div>
+      <a href="#">🎬 Video Notes</a>
+      <a href="#" class="group">🧪 Strategy Lab</a>
+      <div class="sub">
+        <a href="#">📑 01 · NY Liquidity Sweep</a>
+        <a href="#">📑 02 · PDH/PDL Sweep</a>
+        <a href="#">📑 03 · IFVG Continuation</a>
+        <a href="#">🕐 Experimental setups</a>
+      </div>
+      <div class="nav-sep"></div>
+      <a href="#">📓 Trade Journal</a>
+      <a href="#">🔍 Trade Reviews</a>
+      <a href="#">💡 Idea Inbox</a>
+      <a href="#">❓ Questions / Doubts</a>
+      <a href="#">🧭 Tutorial</a>
+      <a href="#">🗄 Archive</a>
+    </nav>
+    <figure class="quote">
+      <blockquote>“Discipline turns knowledge into profit.”</blockquote>
+      <figcaption>— Keep going</figcaption>
+    </figure>
+  </aside>
+
+  <main>
+    <p class="banner">
+      <strong>Static preview.</strong>
+      This is the look of the dashboard with the sample data loaded — no database behind it.
+      In the real app every number is a SQL query and every button writes a row.
+    </p>
+
+    <!-- Hero -->
+    <header class="hero">
+      <div>
+        <h1>Xrynex Trading OS</h1>
+        <nav>
+          <a href="#">Learn</a><span>|</span>
+          <a href="#">Plan</a><span>|</span>
+          <a href="#">Execute</a><span>|</span>
+          <a href="#">Improve</a>
+        </nav>
+      </div>
+      <figure>
+        <blockquote>“It’s not about being right, it’s about following your plan.”</blockquote>
+        <figcaption>— Trader mindset</figcaption>
+      </figure>
+    </header>
+
+    <!-- Row 1 -->
+    <div class="grid c4">
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🎯 Current focus</h2></div>
+        <div class="panel-body">
+          <div class="row"><span class="label">Instrument</span><span class="value">NQ (MNQ)</span></div>
+          <div class="row"><span class="label">Session</span><span class="value">New York, 9:30–11:30</span></div>
+          <div class="row"><span class="label">Timeframe</span><span class="value">15m HTF / 1m–5m exec</span></div>
+          <div class="row"><span class="label">Strategy</span><span class="value">NY Liquidity Sweep + FVG</span></div>
+          <div class="row"><span class="label">Bias</span><span class="badge b-win">Bullish</span></div>
+          <div class="divider">
+            <div class="row" style="margin:0">
+              <span class="label">This week</span><span class="sm">4 / 5 trading days</span>
+            </div>
+            <div class="bar"><span style="width:80%"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">⚡ Quick actions</h2></div>
+        <div class="panel-body">
+          <div class="actions">
+            <button class="btn">+ New trade</button>
+            <button class="btn">+ New idea</button>
+            <button class="btn">+ Video note</button>
+            <button class="btn">+ Add chart</button>
+            <button class="btn">+ New strategy</button>
+            <button class="btn">+ Journal entry</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🗓 Today</h2></div>
+        <div class="panel-body">
+          <p style="margin:0 0 12px;font-size:13px">Sun, 20 Sep 2026</p>
+          <ul class="checks">
+            <li><label><input type="checkbox"><span>Review yesterday’s trades</span></label></li>
+            <li><label><input type="checkbox" checked><span>Mark key levels (PDH/PDL, PWH/PWL)</span></label></li>
+            <li><label><input type="checkbox"><span>Study 1 video (ICT)</span></label></li>
+            <li><label><input type="checkbox"><span>Backtest idea (NY Sweep)</span></label></li>
+            <li><label><input type="checkbox"><span>Update journal</span></label></li>
+          </ul>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <input class="field" placeholder="Add a task" aria-label="Add a task">
+            <button class="btn" style="width:auto">Add</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Row 2 -->
+    <div class="grid c4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">📋 Today’s trades</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Instrument</th><th>Direction</th><th>Result</th><th class="right">R</th></tr></thead>
+            <tbody>
+              <tr><td class="mono" style="color:var(--muted)">#001</td><td>NQ</td><td><span class="badge b-win">Long</span></td><td><span class="badge b-win">Win</span></td><td class="right mono pos">+2.1</td></tr>
+              <tr><td class="mono" style="color:var(--muted)">#002</td><td>NQ</td><td><span class="badge b-loss">Short</span></td><td><span class="badge b-loss">Loss</span></td><td class="right mono neg">−1.0</td></tr>
+              <tr><td class="mono" style="color:var(--muted)">#003</td><td>MNQ</td><td><span class="badge b-win">Long</span></td><td><span class="badge b-win">Win</span></td><td class="right mono pos">+1.8</td></tr>
+              <tr><td class="mono" style="color:var(--muted)">#004</td><td>NQ</td><td><span class="badge b-loss">Short</span></td><td><span class="badge b-win">Win</span></td><td class="right mono pos">+2.4</td></tr>
+              <tr><td class="mono" style="color:var(--muted)">#005</td><td>NQ</td><td><span class="badge b-win">Long</span></td><td><span class="badge b-be">BE</span></td><td class="right mono neu">0.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel span2">
+        <div class="panel-head"><h2 class="panel-title">📈 Recent charts</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <div class="thumbs">
+            <figure class="thumb" style="margin:0">
+              <div class="img"><svg viewBox="0 0 200 96" width="100%" height="96" aria-hidden="true"><rect width="200" height="96" fill="#0b1219"/><g stroke="#22c55e" stroke-width="7"><path d="M20 70v-22M44 66v-30M68 58v-26"/></g><g stroke="#ef4444" stroke-width="7"><path d="M92 40v26M116 34v22"/></g><g stroke="#22c55e" stroke-width="7"><path d="M140 52v-26M164 44v-24M182 38v-18"/></g></svg></div>
+              <figcaption><div class="truncate" style="font-size:13px">NQ — NY session</div><div class="sm">20 Sep</div></figcaption>
+            </figure>
+            <figure class="thumb" style="margin:0">
+              <div class="img"><svg viewBox="0 0 200 96" width="100%" height="96" aria-hidden="true"><rect width="200" height="96" fill="#0b1219"/><g stroke="#ef4444" stroke-width="7"><path d="M20 30v28M44 38v26"/></g><g stroke="#22c55e" stroke-width="7"><path d="M68 64v-24M92 56v-26M116 46v-22M140 40v-20M164 34v-18M182 30v-14"/></g></svg></div>
+              <figcaption><div class="truncate" style="font-size:13px">MNQ — Liquidity sweep</div><div class="sm">19 Sep</div></figcaption>
+            </figure>
+            <figure class="thumb" style="margin:0">
+              <div class="img"><svg viewBox="0 0 200 96" width="100%" height="96" aria-hidden="true"><rect width="200" height="96" fill="#0b1219"/><rect x="70" y="36" width="60" height="18" fill="rgba(59,130,246,.25)"/><g stroke="#22c55e" stroke-width="7"><path d="M20 72v-26M44 62v-22"/></g><g stroke="#ef4444" stroke-width="7"><path d="M68 42v24M92 38v20"/></g><g stroke="#22c55e" stroke-width="7"><path d="M116 54v-22M140 44v-20M164 36v-16M182 32v-12"/></g></svg></div>
+              <figcaption><div class="truncate" style="font-size:13px">NQ — FVG retracement</div><div class="sm">18 Sep</div></figcaption>
+            </figure>
+            <figure class="thumb" style="margin:0">
+              <div class="img"><div class="drive-note">Drive file not shared publicly — set it to “Anyone with the link”</div></div>
+              <figcaption><div class="truncate" style="font-size:13px">NQ — MSS setup</div><div class="sm">17 Sep</div></figcaption>
+            </figure>
+          </div>
+          <p class="sm" style="margin:12px 0 0">Thumbnails come straight from Google Drive. The fourth card shows the fallback when a file is still private.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">📓 Trade journal</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><div class="truncate"><div style="font-size:13px">Clean NY sweep into FVG</div><div class="sm">#001 · NQ</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge b-win">Win</span><span class="sm">20 Sep</span></div></li>
+            <li><div class="truncate"><div style="font-size:13px">Chased the PDH raid</div><div class="sm">#002 · NQ</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge b-loss">Loss</span><span class="sm">19 Sep</span></div></li>
+            <li><div class="truncate"><div style="font-size:13px">Patient MNQ continuation</div><div class="sm">#003 · MNQ</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge b-win">Win</span><span class="sm">18 Sep</span></div></li>
+            <li><div class="truncate"><div style="font-size:13px">Short into 5m FVG</div><div class="sm">#004 · NQ</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge b-win">Win</span><span class="sm">17 Sep</span></div></li>
+            <li><div class="truncate"><div style="font-size:13px">Stopped to break even</div><div class="sm">#005 · NQ</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge b-be">BE</span><span class="sm">16 Sep</span></div></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <!-- Row 3 -->
+    <div class="grid c4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🎬 Video notes</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><div class="truncate"><div style="font-size:13px">ICT — Market Structure</div><div class="sm">ICT · MS, Liquidity</div></div><span class="sm">18 Sep</span></li>
+            <li><div class="truncate"><div style="font-size:13px">Fair Value Gap Explained</div><div class="sm">ICT · FVG</div></div><span class="sm">16 Sep</span></li>
+            <li><div class="truncate"><div style="font-size:13px">Day Trading Model</div><div class="sm">TheInnerCircle · NY Session</div></div><span class="sm">14 Sep</span></li>
+            <li><div class="truncate"><div style="font-size:13px">Order Blocks (Part 1)</div><div class="sm">ICT · OB</div></div><span class="sm">11 Sep</span></li>
+            <li><div class="truncate"><div style="font-size:13px">Advanced Liquidity</div><div class="sm">ICT · Liquidity</div></div><span class="sm">09 Sep</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🧪 Strategy lab</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><span class="truncate"><span class="mono sm">01</span> NY Liquidity Sweep</span><span class="badge b-win">Active</span></li>
+            <li><span class="truncate"><span class="mono sm">02</span> PDH/PDL Sweep</span><span class="badge b-info">Backtesting</span></li>
+            <li><span class="truncate"><span class="mono sm">03</span> FVG Retracement</span><span class="badge b-gold">Testing</span></li>
+            <li><span class="truncate"><span class="mono sm">04</span> IFVG Continuation</span><span class="badge b-be">Draft</span></li>
+            <li><span class="truncate"><span class="mono sm">05</span> CISD Entry</span><span class="badge b-be">Draft</span></li>
+            <li><span class="truncate"><span class="mono sm">06</span> London Sweep</span><span class="badge b-info">Research</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🔑 Key concepts</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><span style="font-size:13px">Liquidity</span><span class="sm truncate">External / internal / sweep</span></li>
+            <li><span style="font-size:13px">FVG</span><span class="sm truncate">Types / entry / exit</span></li>
+            <li><span style="font-size:13px">OB</span><span class="sm truncate">Bullish / bearish / validation</span></li>
+            <li><span style="font-size:13px">MSS</span><span class="sm truncate">Market structure shift</span></li>
+            <li><span style="font-size:13px">CISD</span><span class="sm truncate">Change in state of delivery</span></li>
+            <li><span style="font-size:13px">Sessions</span><span class="sm truncate">Asia / London / NY</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">💡 Idea inbox</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><div class="truncate"><div style="font-size:13px">NY sweep + displacement into 1m FVG</div><div class="sm">20 Sep · Backtest 50 samples</div></div><span class="badge b-gold">Idea</span></li>
+            <li><div class="truncate"><div style="font-size:13px">London low sweep feeds NY continuation</div><div class="sm">18 Sep · Need more examples</div></div><span class="badge b-gold">Idea</span></li>
+            <li><div class="truncate"><div style="font-size:13px">Would a 1H order block give better entries?</div><div class="sm">15 Sep · Research needed</div></div><span class="badge b-info">Research</span></li>
+            <li><div class="truncate"><div style="font-size:13px">CISD + FVG combo works better in NY</div><div class="sm">13 Sep · Test in backtest</div></div><span class="badge b-gold">Idea</span></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <!-- Row 4 -->
+    <div class="grid c4">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🔄 Weekly review</h2><span class="sm">15–21 Sep</span></div>
+        <div class="panel-body">
+          <div class="grid4">
+            <div><div class="label">Trades</div><div class="stat">42</div></div>
+            <div><div class="label">Wins</div><div class="stat pos">27</div></div>
+            <div><div class="label">Losses</div><div class="stat neg">13</div></div>
+            <div><div class="label">BE</div><div class="stat neu">2</div></div>
+          </div>
+          <div class="divider" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div><div class="label">Net R</div><div class="stat pos">+12.6R</div></div>
+            <div><div class="label">Avg R:R</div><div class="stat">1.8</div></div>
+            <svg width="84" height="84" viewBox="0 0 84 84" role="img" aria-label="Win rate 64 percent">
+              <circle cx="42" cy="42" r="34" fill="none" stroke="#1f2b37" stroke-width="8"></circle>
+              <circle cx="42" cy="42" r="34" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round"
+                      stroke-dasharray="213.6" stroke-dashoffset="76.9" transform="rotate(-90 42 42)"></circle>
+              <text x="50%" y="46%" text-anchor="middle" fill="#7b8b9c" font-size="9">Win rate</text>
+              <text x="50%" y="64%" text-anchor="middle" fill="#22c55e" font-size="15" font-weight="600">64%</text>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">📅 Monthly review</h2><span class="sm">September 2026</span></div>
+        <div class="panel-body">
+          <div class="grid4">
+            <div><div class="label">Trades</div><div class="stat">148</div></div>
+            <div><div class="label">Win rate</div><div class="stat pos">61%</div></div>
+            <div><div class="label">Avg R</div><div class="stat">1.7</div></div>
+            <div><div class="label">Net R</div><div class="stat pos">+45.2R</div></div>
+          </div>
+          <div class="grid4 divider">
+            <div><div class="label">Best session</div><div style="font-size:13px;margin-top:2px">NY</div></div>
+            <div><div class="label">Worst session</div><div style="font-size:13px;margin-top:2px">Asia</div></div>
+            <div><div class="label">Top setup</div><div style="font-size:13px;margin-top:2px">Liquidity sweep</div></div>
+            <div><div class="label">Top mistake</div><div style="font-size:13px;margin-top:2px">Early entry</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">📘 My NQ playbook</h2><a class="viewall" href="#">View all</a></div>
+        <div class="panel-body">
+          <ul class="list">
+            <li><span class="truncate"><span class="mono sm">01</span> NY Liquidity Sweep</span><span class="badge b-win">Validated</span></li>
+            <li><span class="truncate"><span class="mono sm">02</span> PDH/PDL Sweep</span><span class="badge b-info">Backtesting</span></li>
+            <li><span class="truncate"><span class="mono sm">03</span> FVG Retracement</span><span class="badge b-info">Backtesting</span></li>
+            <li><span class="truncate"><span class="mono sm">04</span> IFVG Continuation</span><span class="badge b-info">Research</span></li>
+            <li><span class="truncate"><span class="mono sm">05</span> CISD Entry</span><span class="badge b-be">Draft</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">🗂 Google Drive</h2><span class="sm">Screenshots</span></div>
+        <div class="panel-body">
+          <ul class="folders">
+            <li><a href="#">📁 NQ</a></li>
+            <li><a href="#">📁 MNQ</a></li>
+            <li><a href="#">📁 Strategies</a></li>
+            <li><a href="#">📁 Backtesting</a></li>
+            <li><a href="#">📁 Educational</a></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="strip">
+      <span>Better decisions → better trades → better results</span>
+      <span>🌱 Progress, not perfection.</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+  var btn = document.getElementById('menu');
+  var bar = document.getElementById('sidebar');
+  btn.addEventListener('click', function () {
+    var open = bar.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'Close' : 'Menu';
+  });
+</script>
+</body>
+</html>

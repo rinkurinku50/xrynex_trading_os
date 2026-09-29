@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title description">
+  <title id="title">Illustrative demo economic calendar</title>
+  <desc id="description">Fictional sample calendar for demonstrating the Xrynex Trading OS Trading Plan page. Not real economic event data.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101b26"/>
+      <stop offset="1" stop-color="#0b1219"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" rx="28" fill="url(#background)"/>
+  <text x="64" y="88" fill="#f4f7fa" font-family="Arial, sans-serif" font-size="34" font-weight="700">DEMO · WEEKLY ECONOMIC CALENDAR</text>
+  <text x="64" y="128" fill="#94a3b2" font-family="Arial, sans-serif" font-size="18">Illustrative layout only — replace with your current, verified calendar.</text>
+  <rect x="64" y="166" width="1072" height="58" rx="10" fill="#17324a"/>
+  <text x="88" y="203" fill="#72d5a2" font-family="Arial, sans-serif" font-size="18" font-weight="700">DAY</text>
+  <text x="300" y="203" fill="#72d5a2" font-family="Arial, sans-serif" font-size="18" font-weight="700">TIME</text>
+  <text x="440" y="203" fill="#72d5a2" font-family="Arial, sans-serif" font-size="18" font-weight="700">SAMPLE ITEM</text>
+  <text x="990" y="203" fill="#72d5a2" font-family="Arial, sans-serif" font-size="18" font-weight="700">IMPACT</text>
+  <g font-family="Arial, sans-serif" font-size="20" fill="#e6edf3">
+    <rect x="64" y="240" width="1072" height="74" rx="8" fill="#121e29"/><text x="88" y="285">MONDAY</text><text x="300" y="285">08:30</text><text x="440" y="285">Demo event — replace with real data</text><text x="990" y="285" fill="#e8bd67">MEDIUM</text>
+    <rect x="64" y="326" width="1072" height="74" rx="8" fill="#121e29"/><text x="88" y="371">WEDNESDAY</text><text x="300" y="371">10:00</text><text x="440" y="371">Demo event — replace with real data</text><text x="990" y="371" fill="#e8bd67">HIGH</text>
+    <rect x="64" y="412" width="1072" height="74" rx="8" fill="#121e29"/><text x="88" y="457">THURSDAY</text><text x="300" y="457">14:00</text><text x="440" y="457">Demo event — replace with real data</text><text x="990" y="457" fill="#e8bd67">MEDIUM</text>
+  </g>
+  <rect x="64" y="526" width="1072" height="100" rx="14" fill="#321e20" stroke="#8f4544"/>
+  <text x="92" y="568" fill="#ff9a8f" font-family="Arial, sans-serif" font-size="20" font-weight="700">NOT LIVE DATA</text>
+  <text x="92" y="600" fill="#d9b9b6" font-family="Arial, sans-serif" font-size="16">Fictional sample rows for UI demonstration. Confirm event details from your trusted source.</text>
+</svg>

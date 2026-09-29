@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(900px 500px at 78% -8%, rgba(34, 197, 94, 0.07), transparent 60%),
+    #0a0e13;
+  color: #d8e2ec;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select {
+  max-width: 100%;
+}
+
+@media (max-width: 639px) {
+  .panel-body { @apply p-3; }
+  .panel-head { @apply items-start px-3 py-3; }
+  .btn { @apply min-h-10; }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-line bg-panel;
+  }
+  .panel-head {
+    @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3;
+  }
+  .panel-title {
+    @apply flex items-center gap-2 text-[15px] font-semibold text-text;
+  }
+  .panel-body {
+    @apply p-4;
+  }
+  .label {
+    @apply text-[13px] text-muted;
+  }
+  .value {
+    @apply text-[13px] font-medium text-text;
+  }
+  .stat {
+    @apply font-mono text-2xl font-semibold tabular-nums;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-panel2
+           px-3 py-2 text-[13px] font-medium text-text transition-colors
+           hover:border-win/50 hover:bg-[#1b2833]
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-win;
+  }
+  .btn-primary {
+    @apply border-win/40 bg-win/15 text-win hover:bg-win/25;
+  }
+  .field {
+    @apply w-full rounded-lg border border-line bg-ink px-3 py-2 text-[13px] text-text
+           placeholder:text-muted/60
+           focus:border-win/60 focus:outline-none;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-text/80 transition-colors
+           hover:bg-panel2 hover:text-text;
+  }
+  .nav-link-active {
+    @apply bg-[#17324a] text-white;
+  }
+  .th {
+    @apply px-3 py-2 text-left text-[12px] font-medium text-muted;
+  }
+  .td {
+    @apply px-3 py-2.5 text-[13px] text-text;
+  }
+  .row-hover {
+    @apply border-t border-line/70 hover:bg-panel2/60;
+  }
+}
+
+/* Thin scrollbars, dark to match the shell */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #24323f transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #24323f; border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
