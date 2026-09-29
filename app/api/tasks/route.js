@@ -21,10 +21,12 @@ function localDateOnly(date = new Date()) {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 }
 
-export async function GET() {
+export async function GET(request) {
   const user = await requireAuthenticatedApi();
   if (user instanceof Response) return user;
-  const start = localDateOnly();
+  const requestedDate = new URL(request.url).searchParams.get('date');
+  const start = requestedDate === null ? localDateOnly() : parseDateOnly(requestedDate);
+  if (!start) return NextResponse.json({ error: 'Choose a valid task date.' }, { status: 400 });
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
   const rows = await prisma.task.findMany({

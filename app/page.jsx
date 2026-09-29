@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import {
-  getStrategies, getIdeas, getVideos, getCharts, getConcepts, getTasks, getEconomicNews
+  getStrategies, getIdeas, getVideos, getCharts, getConcepts, getEconomicNews
 } from '@/lib/queries';
-import { Panel, ViewAll, Badge, Empty, fmtDate, fmtLongDate } from '@/components/ui';
+import { Panel, ViewAll, Badge, Empty, fmtDate } from '@/components/ui';
 import { DriveImage } from '@/components/DriveMedia';
 import NewButton from '@/components/NewButton';
 import EconomicNewsCard from '@/components/EconomicNewsCard';
@@ -11,8 +11,8 @@ import TodayTasks from '@/components/TodayTasks';
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
-  const [strategies, ideas, videos, charts, concepts, tasks, economicNews] = await Promise.all([
-    getStrategies(), getIdeas(), getVideos(), getCharts(4), getConcepts(), getTasks(), getEconomicNews()
+  const [strategies, ideas, videos, charts, concepts, economicNews] = await Promise.all([
+    getStrategies(), getIdeas(), getVideos(), getCharts(4), getConcepts(), getEconomicNews()
   ]);
 
   return (
@@ -55,8 +55,7 @@ export default async function Dashboard() {
       </div>
 
       <Panel title="Today" icon="🗓">
-        <p className="mb-3 text-[13px] text-text">{fmtLongDate(new Date())}</p>
-        <TodayTasks tasks={tasks} />
+        <TodayTasks />
       </Panel>
 
       {/* Row 3 */}
