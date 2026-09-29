@@ -53,7 +53,7 @@ This is a server-rendered Next.js app with Prisma/PostgreSQL; deploy it as a Ver
   | Variable | Value |
   | --- | --- |
   | `DATABASE_URL` | Neon pooled connection string (pooler hostname, SSL required, `pgbouncer=true`) |
-  | `APP_URL` | Exact production origin, e.g. `https://your-project.vercel.app`; no path or trailing slash |
+  | `APP_URL` | Exact canonical production origin shown under Vercel Project → Settings → Domains; no path or trailing slash |
   | `ADMIN_EMAILS` | Comma-separated email addresses to grant admin when those accounts are provisioned |
   | `ENABLE_PUBLIC_SIGNUP` | `false` unless production email verification and account recovery are implemented |
   | `EMAIL_VERIFICATION_ENABLED` | `false` until a real verification-email flow exists |
@@ -61,7 +61,7 @@ This is a server-rendered Next.js app with Prisma/PostgreSQL; deploy it as a Ver
   If using the legacy SSO integration, also set `LEGACY_SSO_ISSUER` and a newly generated, high-entropy `LEGACY_SSO_SECRET` (at least 32 bytes), plus `LEGACY_SSO_AUDIENCES` only if needed. Configure the matching issuer/secret on the legacy site's **server**. Never deploy the example value or reuse the local development secret.
 5. Deploy from Vercel, then confirm sign-in, server actions/API requests, and reads/writes against Neon. If you add a custom domain, update `APP_URL` to that exact HTTPS origin and redeploy.
 
-Vercel Preview deployments have different origins. Since this app validates write-request origins against `APP_URL`, set a stable preview/staging origin for preview testing, or use Production deployments for write testing; do not set `APP_URL` to a URL that changes on every preview build.
+Vercel Preview deployments have different origins. Since this app validates write-request origins against `APP_URL`, set a stable preview/staging origin for preview testing, or use Production deployments for write testing; do not set `APP_URL` to a URL that changes on every preview build. For production, use the canonical domain that Vercel assigns under Project → Settings → Domains, and set `APP_URL` to exactly that origin before deploying; a deployment-specific URL or an unassigned `*.vercel.app` alias can cause login/write requests to fail origin validation.
 
 ### Existing local data
 
