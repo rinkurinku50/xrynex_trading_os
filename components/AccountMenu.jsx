@@ -20,13 +20,15 @@ export default function AccountMenu({ user }) {
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-      <span className="max-w-[220px] truncate text-[12px] text-muted" title={user.email}>
-        {user.name || user.email}
-      </span>
-      <button type="button" className="btn px-3 py-1.5 text-[12px]" onClick={logout} disabled={busy}>
-        {busy ? 'Signing out…' : 'Log out'}
-      </button>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <span className="max-w-[220px] truncate text-[12px] text-muted" title={user.email}>
+          {user.name || user.email}
+        </span>
+        <button type="button" className="btn px-3 py-1.5 text-[12px]" onClick={logout} disabled={busy}>
+          {busy ? 'Signing out…' : 'Log out'}
+        </button>
+      </div>
       {error && <span role="alert" className="text-[12px] text-loss">{error}</span>}
     </div>
   );

@@ -30,9 +30,9 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className="min-h-screen">
         <ConfirmDialogProvider>
-          <div className="flex min-h-screen min-w-0 flex-col lg:flex-row">
+          <div className="flex min-h-screen min-w-0 flex-col lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-hidden">
             {!isAuthPage && <Sidebar isAdmin={isAdminUser(session?.user)} />}
-            <main className={`relative min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isAuthPage ? 'flex items-center justify-center' : ''}`}>
+            <main className={`relative min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isAuthPage ? 'flex items-center justify-center' : 'lg:h-dvh lg:min-h-0 lg:overflow-y-auto'}`}>
               {pathname === '/login' && (
                 <div className="pointer-events-none absolute inset-x-0 top-12 flex justify-center" aria-hidden="true">
                   <img src="/xrynex-logo.png" alt="" className="w-[min(42vw,360px)] mix-blend-screen opacity-20" />
