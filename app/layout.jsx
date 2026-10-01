@@ -7,6 +7,7 @@ import { getSession } from '@/lib/auth';
 import { isAdminUser } from '@/lib/api-auth';
 import WeeklyCalendarReminder from '@/components/WeeklyCalendarReminder';
 import ConfirmDialogProvider from '@/components/ConfirmDialogProvider';
+import ReminderManager from '@/components/ReminderManager';
 
 export const metadata = {
   title: 'Xrynex Trading OS',
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className="min-h-screen">
         <ConfirmDialogProvider>
+          {!isAuthPage && session && <ReminderManager userId={session.user.id} />}
           <div className="flex min-h-screen min-w-0 flex-col lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-hidden">
             {!isAuthPage && <Sidebar isAdmin={isAdminUser(session?.user)} />}
             <main className={`relative min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isAuthPage ? 'flex items-center justify-center' : 'lg:h-dvh lg:min-h-0 lg:overflow-y-auto'}`}>

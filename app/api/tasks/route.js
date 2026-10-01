@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 const normalize = (row) => row && ({
   ...row,
   task_date: row.taskDate,
+  reminder_time: row.reminderTime,
   completed_at: row.completedAt,
   removed_at: row.removedAt,
 });
@@ -51,6 +52,10 @@ export async function POST(req) {
   if (!taskDate) {
     return NextResponse.json({ error: 'Choose a valid task date.' }, { status: 400 });
   }
-  const row = await prisma.task.create({ data: { ownerId: user.id, title: b.title.trim(), priority, taskDate } });
+  const reminderTime = b.reminder_time ?? null;
+  if (reminderTime !== null && (typeof reminderTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime))) {
+    return NextResponse.json({ error: 'Choose a valid reminder time.' }, { status: 400 });
+  }
+  const row = await prisma.task.create({ data: { ownerId: user.id, title: b.title.trim(), priority, taskDate, reminderTime } });
   return NextResponse.json(normalize(row), { status: 201 });
 }

@@ -5,6 +5,7 @@ import { requireAuthenticatedApi } from '@/lib/api-auth';
 const normalize = (row) => row && ({
   ...row,
   task_date: row.taskDate,
+  reminder_time: row.reminderTime,
   completed_at: row.completedAt,
   removed_at: row.removedAt,
 });
@@ -35,6 +36,12 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: 'Choose High, Medium, or Low priority.' }, { status: 400 });
     }
     data.priority = b.priority;
+  }
+  if ('reminder_time' in b) {
+    if (b.reminder_time !== null && (typeof b.reminder_time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(b.reminder_time))) {
+      return NextResponse.json({ error: 'Choose a valid reminder time.' }, { status: 400 });
+    }
+    data.reminderTime = b.reminder_time;
   }
   if ('task_date' in b) {
     if (typeof b.task_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b.task_date)) {

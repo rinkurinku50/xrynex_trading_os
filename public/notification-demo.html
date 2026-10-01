@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0e13">
+  <title>Sound reminders preview · Xrynex Trading OS</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0a0e13;--panel:#111820;--panel2:#161f29;--line:#263442;--text:#e4edf5;--muted:#91a1b2;--green:#22c55e;--blue:#60a5fa;--amber:#fbbf24;--red:#fb7185}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(850px 480px at 78% -8%,rgba(34,197,94,.1),transparent 60%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input,select{font:inherit}button{cursor:pointer}.wrap{width:min(1120px,100%);margin:auto;padding:38px 24px 60px}.topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700}.brandmark{display:grid;place-items:center;width:34px;height:34px;border:1px solid #28533d;border-radius:10px;background:#10231a;color:#6ee7a0}.preview-badge{padding:5px 10px;border:1px solid #475569;border-radius:999px;color:#bdc8d4;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.hero{margin-bottom:26px}.eyebrow{margin:0 0 8px;color:#72daa0;font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}h1{margin:0;font-size:clamp(28px,5vw,42px);line-height:1.08;letter-spacing:-.045em}.sub{max-width:700px;margin:12px 0 0;color:var(--muted);font-size:15px}.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:18px;align-items:start}.card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(155deg,rgba(255,255,255,.025),transparent 45%),var(--panel);box-shadow:0 16px 44px rgba(0,0,0,.17)}.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 22px 16px;border-bottom:1px solid var(--line)}.card-title{margin:0;font-size:16px;font-weight:750}.card-caption{margin:4px 0 0;color:var(--muted);font-size:12px}.card-body{padding:20px 22px}.master-row{display:flex;align-items:center;justify-content:space-between;gap:16px}.master-label{font-weight:700}.master-hint{margin-top:3px;color:var(--muted);font-size:12px}.switch{position:relative;flex:0 0 auto;width:46px;height:26px;padding:0;border:0;border-radius:99px;background:#384858;transition:background .18s}.switch:before{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;content:"";transition:transform .18s}.switch[aria-checked="true"]{background:#16834b}.switch[aria-checked="true"]:before{transform:translateX(20px)}.divider{height:1px;margin:19px 0;background:var(--line)}.channels{display:grid;gap:10px}.channel{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.015)}.channel-info{display:flex;align-items:center;gap:11px}.icon{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:16px}.channel-name{font-weight:650}.channel-desc{margin-top:2px;color:var(--muted);font-size:11px}.check{accent-color:var(--green);width:17px;height:17px}.sound-controls{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px}.sound-controls label{display:block;margin-bottom:6px;color:var(--muted);font-size:11px;font-weight:700}.select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text)}.volume{width:100%;accent-color:var(--green)}.test-btn,.outline-btn{padding:9px 13px;border:1px solid #31533f;border-radius:10px;background:#10231a;color:#9af0b9;font-weight:700;font-size:12px}.test-btn:hover{background:#153624}.schedule{display:grid;gap:10px}.event{display:grid;grid-template-columns:70px 1fr auto;gap:11px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.015)}.time{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:800;color:#d7e5f2}.event-title{font-weight:650}.event-type{margin-top:2px;color:var(--muted);font-size:11px}.tag{padding:4px 7px;border:1px solid #334250;border-radius:999px;color:#b8c5d1;font-size:10px;font-weight:700;white-space:nowrap}.tag.task{border-color:#264b70;color:#8ec5ff}.tag.routine{border-color:#57421c;color:#f4cf77}.notice{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid #235338;border-radius:13px;background:rgba(34,197,94,.07)}.notice-icon{font-size:18px}.notice strong{display:block;font-size:13px}.notice p{margin:3px 0 0;color:#a9bdaf;font-size:11px}.demo-actions{display:grid;gap:9px;margin-top:14px}.outline-btn{border-color:var(--line);background:var(--panel2);color:var(--text);text-align:left}.outline-btn:hover{border-color:#58738b}.fineprint{margin:16px 2px 0;color:#8292a2;font-size:11px}.toast{position:fixed;right:22px;bottom:22px;z-index:5;display:flex;align-items:center;gap:11px;max-width:min(390px,calc(100vw - 32px));padding:15px 17px;border:1px solid #31533f;border-radius:14px;background:#13241b;box-shadow:0 16px 48px #0008;opacity:0;transform:translateY(12px);pointer-events:none;transition:all .22s}.toast.show{opacity:1;transform:translateY(0)}.toast-icon{font-size:20px}.toast-title{font-weight:750}.toast-copy{color:#aab9b0;font-size:12px}.status{display:inline-flex;align-items:center;gap:6px;color:#82e7a6;font-size:11px;font-weight:700}.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px #22c55e80}@media(max-width:760px){.wrap{padding:22px 15px 42px}.grid{grid-template-columns:1fr}.card-head,.card-body{padding-left:17px;padding-right:17px}.topline{margin-bottom:22px}.event{grid-template-columns:62px 1fr auto}}
+  </style>
+  <style>
+  .toast {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    width: auto;
+    max-width: none;
+    padding: 24px;
+    border: 0;
+    border-radius: 0;
+    background: rgba(3, 8, 14, .78);
+    box-shadow: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: none;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    transition: opacity .22s ease, visibility .22s ease;
+  }
+  .toast.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+  .toast-card {
+    width: min(560px, 100%);
+    padding: clamp(24px, 6vw, 42px);
+    border: 1px solid #3d5c4a;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #17271e, #101820 72%);
+    box-shadow: 0 30px 100px #000b, 0 0 0 1px #ffffff08 inset;
+    text-align: center;
+    transform: translateY(14px) scale(.98);
+    transition: transform .24s ease;
+  }
+  .toast.show .toast-card { transform: translateY(0) scale(1); }
+  .toast-icon { display: grid; place-items: center; width: 76px; height: 76px; margin: 0 auto 17px; border: 1px solid #456c52; border-radius: 22px; background: #203b29; font-size: 38px; }
+  .toast-tag { margin-bottom: 8px; color: #9beaaf; font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+  .toast-title { font-size: clamp(25px, 5vw, 36px); font-weight: 800; letter-spacing: -.035em; line-height: 1.1; }
+  .toast-copy { margin: 11px auto 0; max-width: 400px; color: #afc0b4; font-size: 15px; }
+  .toast-meta { margin-top: 18px; color: #9baaba; font-size: 12px; }
+  .toast-queue { margin-top: 7px; color: #9beaaf; font-size: 12px; font-weight: 700; }
+  .duration-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.015); }
+  .duration-row[hidden] { display: none; }
+  .duration-label { font-size: 12px; font-weight: 700; }
+  .duration-hint { margin-top: 3px; color: var(--muted); font-size: 11px; }
+  .duration-input-wrap { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .duration-input { width: 78px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel2); color: var(--text); text-align: center; }
+  .toast-dismiss { margin-top: 24px; min-width: 150px; padding: 12px 20px; border: 1px solid #398351; border-radius: 12px; background: #176335; color: white; font-weight: 750; }
+  .toast-dismiss:hover { background: #1b7840; }
+  @media (prefers-reduced-motion: reduce) { .toast, .toast-card { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="topline">
+      <div class="brand"><span class="brandmark" aria-hidden="true">◖♪</span><span>Xrynex Trading OS</span></div>
+      <span class="preview-badge">Concept preview</span>
+    </div>
+    <header class="hero">
+      <p class="eyebrow">Daily workflow · reminders</p>
+      <h1>Stay on time. Stay in flow.</h1>
+      <p class="sub">A sound alert when a scheduled task or routine is due, with simple controls to choose which reminders you hear.</p>
+    </header>
+    <div class="grid">
+      <section class="card" aria-labelledby="settings-title">
+        <div class="card-head"><div><h2 class="card-title" id="settings-title">Sound reminders</h2><p class="card-caption">Your reminder preferences</p></div><span class="status"><i class="dot"></i> Enabled</span></div>
+        <div class="card-body">
+          <div class="master-row"><div><div class="master-label">Play a sound when something is due</div><div class="master-hint">Only while this workspace is open</div></div><button class="switch" id="master" role="switch" aria-checked="true" aria-label="Enable sound reminders"></button></div>
+          <div class="divider"></div>
+          <label class="channel"><span class="channel-info"><span class="icon">⏳</span><span><span class="channel-name">Keep popup open until Got it</span><span class="channel-desc" style="display:block">When off, use the auto-close delay below.</span></span></span><input class="check" id="keepPopupOpen" type="checkbox" checked aria-label="Keep popup open until Got it"></label>
+          <div class="divider"></div>
+          <div class="channels">
+            <label class="channel"><span class="channel-info"><span class="icon">✓</span><span><span class="channel-name">Daily tasks</span><span class="channel-desc" style="display:block">A reminder for timed tasks</span></span></span><input class="check" type="checkbox" checked aria-label="Enable daily task reminders"></label>
+            <label class="channel"><span class="channel-info"><span class="icon">◷</span><span><span class="channel-name">Daily routine</span><span class="channel-desc" style="display:block">A reminder for scheduled routines</span></span></span><input class="check" type="checkbox" checked aria-label="Enable daily routine reminders"></label>
+          </div>
+          <div class="divider"></div>
+          <div class="sound-controls">
+            <div><label for="tone">Alert sound</label><select class="select" id="tone"><option value="chime">Soft chime</option><option value="double">Double tone</option><option value="bell">Bright bell</option></select></div>
+            <button class="test-btn" id="test">▶ Test sound</button>
+          </div>
+          <div style="margin-top:16px"><label for="volume" style="display:block;margin-bottom:5px;color:var(--muted);font-size:11px;font-weight:700">Volume <span id="volumeValue">55%</span></label><input class="volume" id="volume" type="range" min="0" max="100" value="55" aria-label="Sound volume"></div>
+          <div class="duration-row" id="durationRow" hidden>
+            <div><label class="duration-label" for="popupDuration">Popup display time</label><div class="duration-hint">How long each reminder stays on screen</div></div>
+            <div class="duration-input-wrap"><input class="duration-input" id="popupDuration" type="number" min="1" max="60" step="1" value="8" aria-label="Popup display time in seconds"><span>sec</span></div>
+          </div>
+          <p class="fineprint">Browser audio starts after you interact with the page. Your final settings can be saved with your workspace.</p>
+        </div>
+      </section>
+      <aside>
+        <section class="card" aria-labelledby="upcoming-title">
+          <div class="card-head"><div><h2 class="card-title" id="upcoming-title">Today’s upcoming reminders</h2><p class="card-caption">Example schedule · local time</p></div><span style="color:var(--muted);font-size:12px">2 alerts</span></div>
+          <div class="card-body"><div class="schedule">
+            <div class="event"><time class="time">09:30</time><div><div class="event-title">Review market plan</div><div class="event-type">Daily task · High priority</div></div><span class="tag task">HIGH</span></div>
+            <div class="event"><time class="time">09:30</time><div><div class="event-title">Trading journal check-in</div><div class="event-type">Daily routine · Normal priority</div></div><span class="tag routine">NORMAL</span></div>
+          </div></div>
+        </section>
+        <section class="card" style="margin-top:16px" aria-labelledby="demo-title">
+          <div class="card-head"><div><h2 class="card-title" id="demo-title">Try the alert</h2><p class="card-caption">Preview the reminder experience</p></div></div>
+          <div class="card-body">
+            <div class="notice"><span class="notice-icon">🔔</span><div><strong>Due now · Review market plan</strong><p>Your scheduled daily task is ready.</p></div></div>
+            <div class="demo-actions"><button class="outline-btn" data-preview="both">▶ Preview two alerts · priority order</button><button class="outline-btn" data-preview="task">▶ Preview task reminder</button><button class="outline-btn" data-preview="routine">▶ Preview routine reminder</button></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="alertdialog" aria-modal="true" aria-labelledby="toastTitle" aria-describedby="toastCopy">
+    <section class="toast-card">
+      <span class="toast-icon" aria-hidden="true">🔔</span>
+      <div class="toast-tag" id="toastTag">Reminder due now</div>
+      <div class="toast-title" id="toastTitle">Reminder due</div>
+      <div class="toast-copy" id="toastCopy">It’s time for your scheduled activity.</div>
+      <div class="toast-queue" id="toastQueue" aria-live="polite"></div>
+      <div class="toast-meta" id="toastMeta">This reminder stays open until you tap Got it.</div>
+      <button class="toast-dismiss" id="toastDismiss" type="button">Got it</button>
+    </section>
+  </div>
+  <script>
+    const master = document.querySelector('#master');
+    const toast = document.querySelector('#toast');
+    const keepPopupOpen = document.querySelector('#keepPopupOpen');
+    const durationRow = document.querySelector('#durationRow');
+    let audioContext;
+    let toastTimer;
+    let queueStartTimer;
+    let reminderQueue = [];
+    let activeReminder = null;
+    const priorityRank = { High: 3, Normal: 2, Medium: 2, Low: 1 };
+    const sampleReminders = {
+      task: { kind: 'task', title: 'Review your market plan', priority: 'High', description: 'Your high-priority task is ready. Take a moment to work through it.' },
+      routine: { kind: 'routine', title: 'Trading journal check-in', priority: 'Normal', description: 'Your routine is scheduled now. Start your trading journal check-in.' },
+    };
+    master.addEventListener('click', () => {
+      const enabled = master.getAttribute('aria-checked') !== 'true';
+      master.setAttribute('aria-checked', String(enabled));
+      master.setAttribute('aria-label', enabled ? 'Enable sound reminders' : 'Disable sound reminders');
+      document.querySelector('.status').innerHTML = enabled ? '<i class="dot"></i> Enabled' : 'Paused';
+    });
+    document.querySelector('#volume').addEventListener('input', event => document.querySelector('#volumeValue').textContent = `${event.target.value}%`);
+    keepPopupOpen.addEventListener('change', () => { durationRow.hidden = keepPopupOpen.checked; });
+    function getPopupDuration() {
+      const input = document.querySelector('#popupDuration');
+      const seconds = Math.min(60, Math.max(1, Number.parseInt(input.value, 10) || 8));
+      input.value = seconds;
+      return seconds;
+    }
+    function playSound() {
+      const volume = Number(document.querySelector('#volume').value) / 100;
+      if (!volume) return;
+      audioContext ??= new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') audioContext.resume();
+      const tone = document.querySelector('#tone').value;
+      const patterns = {
+        chime: [784, 1046, 1318],
+        double: [660, 660, 880],
+        bell: [880, 1175, 1480],
+      };
+      const notes = patterns[tone] || patterns.chime;
+      const startedAt = audioContext.currentTime;
+      const burstGap = 1.15;
+      const burstCount = 5;
+
+      for (let burst = 0; burst < burstCount; burst += 1) {
+        notes.forEach((frequency, index) => {
+          const start = startedAt + burst * burstGap + index * .13;
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          oscillator.type = tone === 'bell' ? 'sine' : 'triangle';
+          oscillator.frequency.setValueAtTime(frequency, start);
+          gain.gain.setValueAtTime(.0001, start);
+          gain.gain.exponentialRampToValueAtTime(Math.max(.0002, volume * .11), start + .025);
+          gain.gain.exponentialRampToValueAtTime(.0001, start + .65);
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(start);
+          oscillator.stop(start + .68);
+        });
+      }
+    }
+    function closeReminder() {
+      toast.classList.remove('show');
+      clearTimeout(toastTimer);
+      activeReminder = null;
+      if (reminderQueue.length) {
+        queueStartTimer = setTimeout(showNextReminder, 450);
+      } else {
+        document.querySelectorAll('[data-preview], #test').forEach((button) => button.focus({ preventScroll: true }));
+      }
+    }
+    function showNextReminder() {
+      if (toast.classList.contains('show') || !reminderQueue.length) return;
+      activeReminder = reminderQueue.shift();
+      const isTask = activeReminder.kind === 'task';
+      const priorityLabel = activeReminder.priority.toLowerCase();
+      document.querySelector('#toastTag').textContent = `${isTask ? 'Daily task' : 'Daily routine'} · ${activeReminder.priority} priority`;
+      document.querySelector('#toastTitle').textContent = activeReminder.title;
+      document.querySelector('#toastCopy').textContent = activeReminder.description;
+      document.querySelector('#toastQueue').textContent = reminderQueue.length
+        ? `${reminderQueue.length} more reminder${reminderQueue.length === 1 ? '' : 's'} queued by priority`
+        : `Showing ${priorityLabel} priority reminder`;
+      const duration = getPopupDuration();
+      document.querySelector('#toastMeta').textContent = keepPopupOpen.checked
+        ? (reminderQueue.length ? 'Tap Got it to continue to the next queued reminder.' : 'This reminder stays open until you tap Got it.')
+        : `This reminder closes after ${duration} second${duration === 1 ? '' : 's'}, or tap Got it sooner.`;
+      toast.classList.add('show');
+      playSound();
+      clearTimeout(toastTimer);
+      if (!keepPopupOpen.checked) toastTimer = setTimeout(closeReminder, duration * 1000);
+      document.querySelector('#toastDismiss').focus({ preventScroll: true });
+    }
+    function preview(kind) {
+      const reminders = kind === 'both' ? [sampleReminders.routine, sampleReminders.task] : [sampleReminders[kind]];
+      reminderQueue.push(...reminders);
+      reminderQueue.sort((a, b) => (priorityRank[b.priority] - priorityRank[a.priority]) || (a.kind === 'task' ? -1 : 1));
+      if (!toast.classList.contains('show')) {
+        clearTimeout(queueStartTimer);
+        queueStartTimer = setTimeout(showNextReminder, 180);
+      }
+    }
+    document.querySelector('#toastDismiss').addEventListener('click', closeReminder);
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !keepPopupOpen.checked && toast.classList.contains('show')) closeReminder(); });
+    document.querySelector('#test').addEventListener('click', () => { playSound(); document.querySelector('#test').textContent = '✓ Sound played'; setTimeout(() => document.querySelector('#test').textContent = '▶ Test sound', 1400); });
+    document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => preview(button.dataset.preview)));
+  </script>
+</body>
+</html>

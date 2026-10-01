@@ -7,12 +7,14 @@ import { DriveImage } from '@/components/DriveMedia';
 import NewButton from '@/components/NewButton';
 import EconomicNewsCard from '@/components/EconomicNewsCard';
 import TodayTasks from '@/components/TodayTasks';
+import RoutineQuickView from '@/components/RoutineQuickView';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
-  const [strategies, ideas, videos, charts, concepts, economicNews] = await Promise.all([
-    getStrategies(), getIdeas(), getVideos(), getCharts(4), getConcepts(), getEconomicNews()
+  const [strategies, ideas, videos, charts, concepts, economicNews, session] = await Promise.all([
+    getStrategies(), getIdeas(), getVideos(), getCharts(4), getConcepts(), getEconomicNews(), getSession()
   ]);
 
   return (
@@ -38,6 +40,8 @@ export default async function Dashboard() {
           </figure>
         </div>
       </header>
+
+      <RoutineQuickView userId={session?.user.id} />
 
       {/* Row 1 */}
       <div className="grid gap-4 xl:grid-cols-2">

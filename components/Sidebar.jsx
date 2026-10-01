@@ -119,7 +119,7 @@ export default function Sidebar({ isAdmin = false }) {
     return () => window.clearInterval(interval);
   }, []);
 
-  const navigationGroups = [...groups, ...(isAdmin ? [{ items: [{ href: '/admin', label: 'Admin Settings', icon: <LuSettings className="text-slate-400" /> }] }] : [])].map((group) => {
+  const navigationGroups = [...groups, { items: [{ href: '/settings', label: 'Settings', icon: <LuSettings className="text-slate-400" /> }] }, ...(isAdmin ? [{ items: [{ href: '/admin', label: 'Admin Settings', icon: <LuSettings className="text-slate-400" /> }] }] : [])].map((group) => {
     if (group.title === 'Knowledge Base') {
       return {
         ...group,
@@ -170,7 +170,7 @@ export default function Sidebar({ isAdmin = false }) {
           <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-line bg-black" aria-hidden="true">
             <img src="/xrynex-logo.png" alt="" className="h-full w-full object-contain" />
           </span>
-          <span className="whitespace-nowrap text-[14px] font-semibold text-white">Xrynex Trading OS</span>
+          <span className="whitespace-nowrap text-[16px] font-semibold text-white">Xrynex Trading OS</span>
         </div>
         <button
           type="button"
@@ -234,13 +234,6 @@ export default function Sidebar({ isAdmin = false }) {
         })}
       </nav>
 
-      <figure className={`mt-4 border-t border-line px-2 pt-4 ${collapsed ? 'lg:hidden' : ''}`}>
-        <blockquote className="font-display text-[19px] leading-tight text-text/90">
-          “Discipline turns knowledge into profit.”
-        </blockquote>
-        <figcaption className="mt-1 text-[12px] text-muted">— Keep going</figcaption>
-      </figure>
-
       <section className={`mt-4 border-t border-line px-2 pt-3 ${collapsed ? 'lg:px-0' : ''}`} aria-label="Live market clocks">
         <div className={`mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted ${collapsed ? 'lg:justify-center' : ''}`}>
           <LuClock3 className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
@@ -249,20 +242,27 @@ export default function Sidebar({ isAdmin = false }) {
         <div className={`space-y-1 text-[11px] ${collapsed ? 'lg:hidden' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted">India</span>
-            <time className="font-mono tabular-nums text-text">{clockTimes.india || '—'}</time>
+            <time className="text-[14px] font-mono tabular-nums text-text">{clockTimes.india || '—'}</time>
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted">New York</span>
-            <time className="font-mono tabular-nums text-text">{clockTimes.newYork || '—'}</time>
+            <time className="text-[14px] font-mono tabular-nums text-text">{clockTimes.newYork || '—'}</time>
           </div>
         </div>
         {collapsed && (
-          <div className="hidden flex-col items-center gap-1 font-mono text-[10px] tabular-nums text-text lg:flex">
+          <div className="hidden flex-col items-center gap-1 font-mono text-[13px] tabular-nums text-text lg:flex">
             <time title={`India: ${clockTimes.india}`}>{clockTimes.compactIndia || '—'}</time>
             <time title={`New York: ${clockTimes.newYork}`}>{clockTimes.compactNewYork || '—'}</time>
           </div>
         )}
       </section>
+
+      <figure className={`mt-4 border-t border-line px-2 pt-4 ${collapsed ? 'lg:hidden' : ''}`}>
+        <blockquote className="font-display text-[19px] leading-tight text-text/90">
+          “Discipline turns knowledge into profit.”
+        </blockquote>
+        <figcaption className="mt-1 text-[12px] text-muted">— Keep going</figcaption>
+      </figure>
       </aside>
     </>
   );

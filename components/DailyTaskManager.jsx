@@ -7,6 +7,7 @@ import { Modal } from '@/components/Form';
 import SelectMenu from '@/components/SelectMenu';
 import SectionHeader from '@/components/SectionHeader';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
+import { formatTime12Hour } from '@/lib/routine-data';
 
 const tabs = ['Today', 'Pending', 'Upcoming', 'Completed', 'Removed'];
 const priorities = ['High', 'Medium', 'Low'];
@@ -55,6 +56,7 @@ export default function DailyTaskManager({ tasks }) {
   const [items, setItems] = useState(tasks);
   const [activeTab, setActiveTab] = useState('Today');
   const [title, setTitle] = useState('');
+  const [reminderTime, setReminderTime] = useState('');
   const [priority, setPriority] = useState('Medium');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -119,6 +121,7 @@ export default function DailyTaskManager({ tasks }) {
       return;
     }
     setItems((current) => current.map((item) => item.id === task.id ? result : item));
+    window.dispatchEvent(new Event('tasks-updated'));
     router.refresh();
   }
 
@@ -137,6 +140,7 @@ export default function DailyTaskManager({ tasks }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not permanently delete this task.');
       setItems((current) => current.filter((item) => item.id !== task.id));
+      window.dispatchEvent(new Event('tasks-updated'));
       router.refresh();
     } catch (deleteError) {
       setError(deleteError.message);
@@ -154,14 +158,16 @@ export default function DailyTaskManager({ tasks }) {
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), priority, task_date: today }),
+        body: JSON.stringify({ title: title.trim(), priority, task_date: today, reminder_time: reminderTime || null }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not add this task.');
       setItems((current) => [...current, result]);
       setTitle('');
+      setReminderTime('');
       setPriority('Medium');
       setActiveTab('Today');
+      window.dispatchEvent(new Event('tasks-updated'));
       router.refresh();
     } catch (err) {
       setError(err.message);
@@ -198,7 +204,7 @@ export default function DailyTaskManager({ tasks }) {
         </p>
       </div>
 
-      <form onSubmit={addTask} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
+      <form onSubmit={addTask} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
         <input
           className="field"
           value={title}
@@ -206,6 +212,16 @@ export default function DailyTaskManager({ tasks }) {
           placeholder="What needs to get done today?"
           aria-label="New daily task"
           maxLength={240}
+        />
+        <label className="sr-only" htmlFor="new-task-reminder-time">Reminder time</label>
+        <input
+          id="new-task-reminder-time"
+          className="field"
+          type="time"
+          value={reminderTime}
+          onChange={(event) => setReminderTime(event.target.value)}
+          aria-label="Optional reminder time"
+          title="Optional reminder time"
         />
         <SelectMenu
           value={priority}
@@ -270,6 +286,7 @@ export default function DailyTaskManager({ tasks }) {
                   <p className={`text-[13px] ${task.done ? 'text-muted line-through' : 'text-text'}`}>{task.title}</p>
                   <p className={`mt-0.5 text-[11px] ${isLate ? 'text-loss' : 'text-muted'}`}>
                     {isLate ? `Overdue · ${prettyDate(task.task_date)}` : prettyDate(task.task_date)}
+                    {task.reminder_time && ` · Reminder at ${formatTime12Hour(task.reminder_time)}`}
                   </p>
                     {task.completed_at && <p className="mt-0.5 text-[11px] text-win">Completed {prettyDateTime(task.completed_at)}</p>}
                     {task.removed_at && <p className="mt-0.5 text-[11px] text-loss">Removed {prettyDateTime(task.removed_at)}</p>}
@@ -277,6 +294,22 @@ export default function DailyTaskManager({ tasks }) {
                 <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.priority === 'High' ? 'border-loss/30 bg-loss/10 text-loss' : task.priority === 'Low' ? 'border-line bg-panel2 text-muted' : 'border-gold/30 bg-gold/10 text-gold'}`}>
                   {task.priority || 'Medium'}
                 </span>
+                {!task.removed_at && activeTab !== 'Completed' && (
+                  <label className="flex items-center gap-1 text-[10px] text-muted" title="Set or clear this task reminder">
+                    <span className="sr-only">Reminder time for {task.title}</span>
+                    <input
+                      key={`${task.id}-${task.reminder_time || ''}`}
+                      type="time"
+                      defaultValue={task.reminder_time || ''}
+                      className="field w-[108px] px-2 py-1 text-[11px]"
+                      aria-label={`Reminder time for ${task.title}`}
+                      onBlur={(event) => {
+                        const value = event.target.value || null;
+                        if (value !== (task.reminder_time || null)) updateTask(task, { reminder_time: value });
+                      }}
+                    />
+                  </label>
+                )}
                 {!task.removed_at && activeTab !== 'Completed' && (
                   <SelectMenu
                     value={task.priority || 'Medium'}

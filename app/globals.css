@@ -490,6 +490,11 @@ html[data-theme='dark'] {
   color: white;
 }
 
+.routine-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
 .routine-time {
   width: 4.2rem;
   color: var(--ink);

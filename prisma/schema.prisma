@@ -93,6 +93,7 @@ model Task {
   done      Boolean  @default(false)
   priority  String   @default("Medium")
   taskDate  DateTime @map("task_date") @db.Date
+  reminderTime String? @map("reminder_time") @db.VarChar(5)
   completedAt DateTime? @map("completed_at")
   removedAt DateTime? @map("removed_at")
   ownerId   String?  @map("owner_id")

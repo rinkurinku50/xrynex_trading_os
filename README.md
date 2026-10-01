@@ -226,3 +226,13 @@ If the SSO subject has not been seen before, Xrynex Trading OS creates an accoun
 The Xrynex Trading OS implementation lives in `app/api/auth/sso/exchange/route.js` and `app/api/auth/sso/consume/route.js`. The main website's route depends on its framework and session system; implement signing and the exchange request server-side using that stack's JWT library and secret-management facilities.
 
 **Do not replace the Xrynex Trading OS routes with an implementation that stores pending codes in an in-memory `Map` or signs a separate session cookie.** In-memory codes are lost across restarts and are not shared between server instances. Xrynex Trading OS already stores one-time codes and sessions in PostgreSQL, and its pages require the `tradingos_session` cookie issued by its consume route. A separate `SESSION_SECRET` is not used by this app. Configure the shared `LEGACY_SSO_SECRET` securely on both servers instead.
+
+
+
+
+
+
+1) change db to prod db
+2) push this code on master_work branch 
+3) push the same code on master branch
+4) move all new db data to prod data without impacting existing data 

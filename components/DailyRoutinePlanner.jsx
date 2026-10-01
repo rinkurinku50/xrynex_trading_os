@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DEFAULT_ROUTINE_TASKS,
+  formatTime12Hour,
+  routineStorageKeys,
+} from '@/lib/routine-data';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -13,17 +18,6 @@ const DEFAULT_CATEGORIES = [
   { id: 'learning', n: 'Learning', c: '#8b5cf6' },
   { id: 'home', n: 'Home', c: '#f97316' },
   { id: 'personal', n: 'Personal', c: '#ec4899' },
-];
-
-const DEFAULT_TASKS = [
-  { id: 'wake-up', title: 'Wake up & drink water', time: '06:30', cat: 'health', days: [1, 2, 3, 4, 5, 6], note: 'Hydrate before coffee.' },
-  { id: 'workout', title: 'Workout', time: '07:00', cat: 'health', days: [1, 2, 3, 4, 5], note: 'Mon, Wed, Fri are strength days.' },
-  { id: 'plan-day', title: 'Plan the day', time: '08:30', cat: 'work', days: [1, 2, 3, 4, 5], note: 'Set priorities and top tasks.' },
-  { id: 'deep-work', title: 'Deep work block', time: '09:30', cat: 'work', days: [1, 2, 3, 4, 5], note: 'Protected focus time.' },
-  { id: 'lunch-walk', title: 'Lunch walk', time: '13:00', cat: 'health', days: [1, 2, 3, 4, 5], note: '20-minute reset.' },
-  { id: 'read-pages', title: 'Read 20 pages', time: '17:30', cat: 'learning', days: [1, 2, 3, 4, 5, 6], note: 'A short, steady habit.' },
-  { id: 'tidy-house', title: 'Tidy the house', time: '19:00', cat: 'home', days: [0, 1, 2, 3, 4, 5, 6], note: 'Reset the room before bed.' },
-  { id: 'journal', title: 'Journal & wind down', time: '21:30', cat: 'personal', days: [1, 2, 3, 4, 5, 6], note: 'Reflect and sleep well.' },
 ];
 
 function toDateKey(date) {
@@ -265,7 +259,7 @@ function AppearanceSettings({ accent, theme, colorPalette, onAccentChange, onThe
   );
 }
 
-function RoutineList({ tasks, selectedDate, categoryId, done, onToggleDone, onOpenEditDialog }) {
+function RoutineList({ tasks, selectedDate, categoryId, done, now, onToggleDone, onOpenEditDialog }) {
   const groups = [
     { key: 'morning', label: 'Morning', start: 0, end: 12 },
     { key: 'afternoon', label: 'Afternoon', start: 12, end: 17 },
@@ -294,6 +288,8 @@ function RoutineList({ tasks, selectedDate, categoryId, done, onToggleDone, onOp
 
             {groupTasks.map((task) => {
               const isDone = (done[toDateKey(selectedDate)] || []).includes(task.id);
+              const isScheduledTimePassed = toDateKey(selectedDate) === toDateKey(now)
+                && task.time <= `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
               const category = DEFAULT_CATEGORIES.find((entry) => entry.id === task.cat) || DEFAULT_CATEGORIES[0];
               return (
                 <div
@@ -304,14 +300,18 @@ function RoutineList({ tasks, selectedDate, categoryId, done, onToggleDone, onOp
                   <div className="routine-card-main">
                     <button
                       type="button"
-                      className={`routine-check${isDone ? ' is-active' : ''}`}
-                      aria-label={isDone ? `Uncheck ${task.title}` : `Check ${task.title}`}
+                      className={`routine-check${isDone ? ' is-active' : ''}${isDone && isScheduledTimePassed ? ' is-locked' : ''}`}
+                      aria-label={isDone
+                        ? isScheduledTimePassed ? `${task.title} complete; locked after scheduled time` : `Uncheck ${task.title}`
+                        : `Check ${task.title}`}
+                      title={isDone && isScheduledTimePassed ? 'Completed at the scheduled time and locked' : undefined}
+                      disabled={isDone && isScheduledTimePassed}
                       onClick={() => onToggleDone(task.id)}
                     >
                       {isDone && <span>✓</span>}
                     </button>
 
-                    <div className="routine-time" aria-label={task.time}>{task.time}</div>
+                    <div className="routine-time" aria-label={formatTime12Hour(task.time)}>{formatTime12Hour(task.time)}</div>
 
                     <div className="routine-task-copy">
                       <div className={`routine-task-title${isDone ? ' is-done' : ''}`}>{task.title}</div>
@@ -438,11 +438,15 @@ function RoutineDialog({ dialogRef, mode, draft, setDraft, onClose, onSave, onDe
   );
 }
 
-export default function DailyRoutinePlanner() {
+export default function DailyRoutinePlanner({ userId }) {
+  const storageKeys = routineStorageKeys(userId);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [tasks, setTasks] = useState(DEFAULT_TASKS);
+  const [tasks, setTasks] = useState(DEFAULT_ROUTINE_TASKS);
   const [done, setDone] = useState({});
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [routineDataLoaded, setRoutineDataLoaded] = useState(false);
+  const [autoDone, setAutoDone] = useState({});
+  const [now, setNow] = useState(() => new Date());
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [accent, setAccent] = useState('#0f766e');
   const [theme, setTheme] = useState('auto');
@@ -461,9 +465,74 @@ export default function DailyRoutinePlanner() {
   useEffect(() => {
     const savedAccent = localStorage.getItem('routine-accent');
     const savedTheme = localStorage.getItem('routine-theme');
+    try {
+      const savedTasks = JSON.parse(localStorage.getItem(storageKeys.tasks));
+      const savedDone = JSON.parse(localStorage.getItem(storageKeys.done));
+      const savedAutoDone = JSON.parse(localStorage.getItem(storageKeys.autoDone));
+      const savedCategories = JSON.parse(localStorage.getItem(storageKeys.categories));
+      if (Array.isArray(savedTasks)) setTasks(savedTasks);
+      if (savedDone && typeof savedDone === 'object' && !Array.isArray(savedDone)) setDone(savedDone);
+      if (savedAutoDone && typeof savedAutoDone === 'object' && !Array.isArray(savedAutoDone)) setAutoDone(savedAutoDone);
+      if (Array.isArray(savedCategories) && savedCategories.length) setCategories(savedCategories);
+    } catch {
+      // Fall back to the starter routines if browser storage is unavailable or invalid.
+    }
     if (savedAccent) setAccent(savedAccent);
     if (savedTheme) setTheme(savedTheme);
-  }, []);
+    setRoutineDataLoaded(true);
+  }, [storageKeys.autoDone, storageKeys.categories, storageKeys.done, storageKeys.tasks]);
+
+  useEffect(() => {
+    if (!routineDataLoaded) return;
+    localStorage.setItem(storageKeys.tasks, JSON.stringify(tasks));
+    localStorage.setItem(storageKeys.done, JSON.stringify(done));
+    localStorage.setItem(storageKeys.autoDone, JSON.stringify(autoDone));
+    window.dispatchEvent(new Event(storageKeys.updatedEvent));
+  }, [autoDone, done, routineDataLoaded, storageKeys.autoDone, storageKeys.done, storageKeys.tasks, storageKeys.updatedEvent, tasks]);
+
+  useEffect(() => {
+    const updateClockAndAutoComplete = () => {
+      const current = new Date();
+      setNow(current);
+      if (!routineDataLoaded || toDateKey(selectedDate) !== toDateKey(current)) return;
+
+      const currentTime = `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
+      const dueIds = tasks
+        .filter((task) => getTaskMatchesDay(task, current) && task.time <= currentTime)
+        .map((task) => task.id);
+      if (!dueIds.length) return;
+
+      const currentDayDone = done[toDateKey(current)] || [];
+      const currentDayAutoDone = autoDone[toDateKey(current)] || [];
+      const newlyCompleted = dueIds.filter((id) => !currentDayDone.some((doneId) => String(doneId) === String(id)));
+      const newlyAutoDone = dueIds.filter((id) => (
+        !currentDayDone.some((doneId) => String(doneId) === String(id))
+        && !currentDayAutoDone.some((doneId) => String(doneId) === String(id))
+      ));
+      if (!newlyCompleted.length && !newlyAutoDone.length) return;
+
+      const dateKey = toDateKey(current);
+      const nextDone = newlyCompleted.length
+        ? { ...done, [dateKey]: [...currentDayDone, ...newlyCompleted] }
+        : done;
+      const nextAutoDone = newlyAutoDone.length
+        ? { ...autoDone, [dateKey]: [...currentDayAutoDone, ...newlyAutoDone] }
+        : autoDone;
+      if (newlyCompleted.length) setDone(nextDone);
+      if (newlyAutoDone.length) setAutoDone(nextAutoDone);
+      localStorage.setItem(storageKeys.done, JSON.stringify(nextDone));
+      localStorage.setItem(storageKeys.autoDone, JSON.stringify(nextAutoDone));
+      window.dispatchEvent(new Event(storageKeys.updatedEvent));
+    };
+
+    updateClockAndAutoComplete();
+    const timer = window.setInterval(updateClockAndAutoComplete, 15_000);
+    return () => window.clearInterval(timer);
+  }, [autoDone, done, routineDataLoaded, selectedDate, storageKeys.autoDone, storageKeys.done, storageKeys.updatedEvent, tasks]);
+
+  useEffect(() => {
+    if (routineDataLoaded) localStorage.setItem(storageKeys.categories, JSON.stringify(categories));
+  }, [categories, routineDataLoaded, storageKeys.categories]);
 
   useEffect(() => {
     localStorage.setItem('routine-accent', accent);
@@ -530,6 +599,9 @@ export default function DailyRoutinePlanner() {
   };
 
   const toggleDone = (taskId) => {
+    const task = tasks.find((item) => item.id === taskId);
+    const timeNow = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (toDateKey(selectedDate) === toDateKey(now) && task && task.time <= timeNow && (done[selectedKey] || []).some((id) => String(id) === String(taskId))) return;
     setDone((current) => {
       const existing = current[selectedKey] || [];
       const next = existing.includes(taskId)
@@ -631,6 +703,7 @@ export default function DailyRoutinePlanner() {
             selectedDate={selectedDate}
             categoryId={selectedCategory}
             done={done}
+            now={now}
             onToggleDone={toggleDone}
             onOpenEditDialog={openEditDialog}
           />
