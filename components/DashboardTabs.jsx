@@ -4,7 +4,7 @@ import { useState } from 'react';
 import MistakeMemory from '@/components/MistakeMemory';
 
 export default function DashboardTabs({ children }) {
-  const [activeTab, setActiveTab] = useState('mistakes');
+  const [activeTab, setActiveTab] = useState('main');
 
   return (
     <div className="space-y-4">
