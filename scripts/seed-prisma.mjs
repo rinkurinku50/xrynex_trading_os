@@ -1,5 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient as PostgresPrismaClient } from '@prisma/client';
+import { PrismaClient as SQLitePrismaClient } from '../generated/sqlite-client/index.js';
+import { DEFAULT_USER_PREFERENCES } from '../lib/workspace-defaults.js';
 
+const useSQLite = process.env.NODE_ENV !== 'production' && process.env.SQLITE_DATABASE_URL?.startsWith('file:');
+const PrismaClient = useSQLite ? SQLitePrismaClient : PostgresPrismaClient;
 const prisma = new PrismaClient();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const now = new Date();
@@ -16,7 +20,13 @@ function configuredSeedEmail() {
 async function createMissingForOwner(model, ownerId, rows, uniqueField) {
   let created = 0;
   for (const data of rows) {
-    const comparableField = typeof data.title === 'string' ? 'title' : typeof data.name === 'string' ? 'name' : uniqueField;
+    const comparableField = typeof data.title === 'string'
+      ? 'title'
+      : typeof data.name === 'string'
+        ? 'name'
+        : typeof data.text === 'string'
+          ? 'text'
+          : uniqueField;
     const normalizeDemoLabel = (value) => String(value).replace(/^demo\s*[—–:-]\s*/i, '').trim().toLowerCase();
     const existing = await model.findMany({
       where: { ownerId },
@@ -36,12 +46,31 @@ async function createMissingForOwner(model, ownerId, rows, uniqueField) {
   return created;
 }
 
+async function initializeMissingPreferences(ownerId) {
+  const existing = await prisma.userPreference.findMany({
+    where: { ownerId },
+    select: { key: true },
+  });
+  const existingKeys = new Set(existing.map(({ key }) => key));
+  const missing = Object.entries(DEFAULT_USER_PREFERENCES).filter(([key]) => !existingKeys.has(key));
+  if (!missing.length) return 0;
+
+  await prisma.$transaction(missing.map(([key, value]) => prisma.userPreference.upsert({
+    where: { ownerId_key: { ownerId, key } },
+    create: { ownerId, key, value: JSON.stringify(value) },
+    update: {},
+  })));
+  return missing.length;
+}
+
 async function main() {
   const email = configuredSeedEmail();
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true } });
   if (!user) throw new Error(`No account found for ${email}. Create/sign in to the account before seeding demo data.`);
 
   let added = 0;
+  added += await initializeMissingPreferences(user.id);
+
   const focus = await prisma.focus.findUnique({ where: { ownerId: user.id } });
   if (!focus) {
     await prisma.focus.create({
@@ -105,6 +134,22 @@ async function main() {
     { name: 'DEMO — Replace with your weekly review folder', driveUrl: 'https://drive.google.com/drive/my-drive' },
     { name: 'DEMO — Replace with your execution screenshots folder', driveUrl: 'https://drive.google.com/drive/my-drive' },
   ], 'name');
+
+  const tomorrow = daysAhead(1).toISOString().slice(0, 10);
+  added += await createMissingForOwner(prisma.economicNews, user.id, [
+    { title: 'DEMO — Review scheduled event times in a trusted calendar', priority: 'High', eventAt: `${tomorrow}T08:30` },
+    { title: 'DEMO — Note session context before reviewing a market event', priority: 'Medium', eventAt: `${tomorrow}T10:00` },
+  ], 'id');
+
+  added += await createMissingForOwner(prisma.tradingMistake, user.id, [
+    { title: 'DEMO — Entered before confirmation', description: 'Illustrative process review entry; replace with your own observation.', category: 'Entry', severity: 'Medium', preventionRule: 'Wait for the written confirmation criteria before considering entry.', frequency: 0 },
+    { title: 'DEMO — Risk was not defined first', description: 'Illustrative process review entry; replace with your own observation.', category: 'Risk Management', severity: 'High', preventionRule: 'Define invalidation and planned risk before considering entry.', frequency: 0 },
+  ], 'id');
+
+  added += await createMissingForOwner(prisma.mistakeReviewPoint, user.id, [
+    { text: 'DEMO — Did each decision follow the written plan?' },
+    { text: 'DEMO — What process change is worth testing next?' },
+  ], 'id');
 
   const calendar = await prisma.economicCalendarScreenshot.findUnique({ where: { ownerId: user.id } });
   if (!calendar || !calendar.imageUrl) {

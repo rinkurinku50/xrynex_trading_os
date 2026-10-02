@@ -3,16 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LuCheck, LuClock3 } from 'react-icons/lu';
 import {
-  DEFAULT_ROUTINE_TASKS,
-  routineStorageKeys,
-} from '@/lib/routine-data';
-import {
-  DEFAULT_REMINDER_SETTINGS,
-  reminderSettingsKey,
   reminderSettingsUpdatedEvent,
   reminderTestNotificationEvent,
   reminderTestSoundEvent,
 } from '@/lib/reminder-settings';
+import { preferencesUpdatedEvent, readPreferences, writePreferences } from '@/lib/client-preferences';
 
 const PRIORITY_RANK = { High: 3, Medium: 2, Low: 1 };
 
@@ -27,15 +22,6 @@ function taskDateKey(value) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
-}
-
-function readJson(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return value ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function isValidTime(value) {
@@ -56,16 +42,14 @@ function reminderPriority(value) {
 }
 
 export default function ReminderManager({ userId }) {
-  const settingsKey = reminderSettingsKey(userId);
   const settingsUpdatedEvent = reminderSettingsUpdatedEvent(userId);
   const testSoundEvent = reminderTestSoundEvent(userId);
   const testNotificationEvent = reminderTestNotificationEvent(userId);
-  const acknowledgedKey = `xrynex-acknowledged-reminders:${userId}`;
-  const routineKeys = routineStorageKeys(userId);
-  const [settings, setSettings] = useState(DEFAULT_REMINDER_SETTINGS);
+  const [settings, setSettings] = useState(null);
   const [storageReady, setStorageReady] = useState(false);
+  const [preferenceError, setPreferenceError] = useState('');
   const [todayTasks, setTodayTasks] = useState([]);
-  const [routines, setRoutines] = useState(DEFAULT_ROUTINE_TASKS);
+  const [routines, setRoutines] = useState([]);
   const [routineDone, setRoutineDone] = useState({});
   const [routineAutoDone, setRoutineAutoDone] = useState({});
   const [activeReminder, setActiveReminder] = useState(null);
@@ -79,19 +63,36 @@ export default function ReminderManager({ userId }) {
   dataRef.current = { settings, todayTasks, routines, routineDone, routineAutoDone };
 
   useEffect(() => {
-    const storedSettings = readJson(settingsKey, DEFAULT_REMINDER_SETTINGS);
-    setSettings({ ...DEFAULT_REMINDER_SETTINGS, ...storedSettings });
-    setRoutines(readJson(routineKeys.tasks, DEFAULT_ROUTINE_TASKS));
-    setRoutineDone(readJson(routineKeys.done, {}));
-    setRoutineAutoDone(readJson(routineKeys.autoDone, {}));
-    const acknowledgedItems = readJson(acknowledgedKey, []);
-    acknowledgedRef.current = new Set(Array.isArray(acknowledgedItems) ? acknowledgedItems : []);
-    setStorageReady(true);
-  }, [acknowledgedKey, routineKeys.autoDone, routineKeys.done, routineKeys.tasks, settingsKey]);
+    let mounted = true;
+    readPreferences([
+      'reminder-settings', 'reminder-acknowledged', 'routine-tasks', 'routine-done', 'routine-auto-done',
+    ], {
+      'reminder-settings': `xrynex-reminder-settings:${userId}`,
+      'reminder-acknowledged': `xrynex-acknowledged-reminders:${userId}`,
+      'routine-tasks': `xrynex-routine-tasks:${encodeURIComponent(userId || 'workspace')}`,
+      'routine-done': `xrynex-routine-done:${encodeURIComponent(userId || 'workspace')}`,
+      'routine-auto-done': `xrynex-routine-auto-done:${encodeURIComponent(userId || 'workspace')}`,
+    }).then((saved) => {
+      if (!mounted) return;
+      setSettings(saved['reminder-settings'] || null);
+      setRoutines(Array.isArray(saved['routine-tasks']) ? saved['routine-tasks'] : []);
+      setRoutineDone(saved['routine-done'] || {});
+      setRoutineAutoDone(saved['routine-auto-done'] || {});
+      acknowledgedRef.current = new Set(Array.isArray(saved['reminder-acknowledged']) ? saved['reminder-acknowledged'] : []);
+    }).catch((error) => {
+      if (mounted) setPreferenceError(error.message);
+    }).finally(() => {
+      if (mounted) setStorageReady(true);
+    });
+    return () => { mounted = false; };
+  }, [userId]);
 
   useEffect(() => {
     const reloadSettings = () => {
-      setSettings({ ...DEFAULT_REMINDER_SETTINGS, ...readJson(settingsKey, DEFAULT_REMINDER_SETTINGS) });
+      readPreferences(['reminder-settings']).then((saved) => {
+        setSettings(saved['reminder-settings'] || null);
+        setPreferenceError('');
+      }).catch((error) => setPreferenceError(error.message));
     };
     const runSoundTest = () => testSound();
     const runNotificationTest = () => testNotification();
@@ -103,12 +104,14 @@ export default function ReminderManager({ userId }) {
       window.removeEventListener(testSoundEvent, runSoundTest);
       window.removeEventListener(testNotificationEvent, runNotificationTest);
     };
-  }, [settingsKey, settingsUpdatedEvent, testNotificationEvent, testSoundEvent]);
+  }, [settingsUpdatedEvent, testNotificationEvent, testSoundEvent]);
 
   useEffect(() => {
-    if (!storageReady) return;
-    localStorage.setItem(settingsKey, JSON.stringify(settings));
-  }, [settings, settingsKey, storageReady]);
+    if (!storageReady || !settings) return;
+    writePreferences({ 'reminder-settings': settings })
+      .then(() => setPreferenceError(''))
+      .catch((error) => setPreferenceError(error.message));
+  }, [settings, storageReady]);
 
   const refreshTasks = useCallback(async () => {
     const today = localDateKey(new Date());
@@ -122,19 +125,21 @@ export default function ReminderManager({ userId }) {
     }
   }, []);
 
-  const refreshRoutines = useCallback(() => {
-    setRoutines(readJson(routineKeys.tasks, DEFAULT_ROUTINE_TASKS));
-    setRoutineDone(readJson(routineKeys.done, {}));
-    setRoutineAutoDone(readJson(routineKeys.autoDone, {}));
-  }, [routineKeys.autoDone, routineKeys.done, routineKeys.tasks]);
+  const refreshRoutines = useCallback(async () => {
+    const saved = await readPreferences(['routine-tasks', 'routine-done', 'routine-auto-done']);
+    setRoutines(Array.isArray(saved['routine-tasks']) ? saved['routine-tasks'] : []);
+    setRoutineDone(saved['routine-done'] || {});
+    setRoutineAutoDone(saved['routine-auto-done'] || {});
+  }, []);
 
   useEffect(() => {
     refreshTasks();
     const taskTimer = window.setInterval(refreshTasks, 30_000);
     const onTaskUpdate = () => refreshTasks();
-    const onRoutineUpdate = () => refreshRoutines();
-    const onStorage = (event) => {
-      if ([routineKeys.tasks, routineKeys.done, routineKeys.autoDone].includes(event.key)) refreshRoutines();
+    const onPreferenceUpdate = (event) => {
+      if (event.detail?.some((key) => ['routine-tasks', 'routine-done', 'routine-auto-done'].includes(key))) {
+        refreshRoutines().catch((error) => setPreferenceError(error.message));
+      }
     };
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -143,17 +148,15 @@ export default function ReminderManager({ userId }) {
       }
     };
     window.addEventListener('tasks-updated', onTaskUpdate);
-    window.addEventListener(routineKeys.updatedEvent, onRoutineUpdate);
-    window.addEventListener('storage', onStorage);
+    window.addEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.clearInterval(taskTimer);
       window.removeEventListener('tasks-updated', onTaskUpdate);
-      window.removeEventListener(routineKeys.updatedEvent, onRoutineUpdate);
-      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refreshRoutines, refreshTasks, routineKeys.autoDone, routineKeys.done, routineKeys.tasks, routineKeys.updatedEvent]);
+  }, [refreshRoutines, refreshTasks]);
 
   const unlockAudio = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -219,7 +222,8 @@ export default function ReminderManager({ userId }) {
     const completedReminder = activeRef.current;
     if (completedReminder && completedReminder.kind !== 'test') {
       acknowledgedRef.current.add(completedReminder.key);
-      localStorage.setItem(acknowledgedKey, JSON.stringify([...acknowledgedRef.current]));
+      writePreferences({ 'reminder-acknowledged': [...acknowledgedRef.current] })
+        .catch((error) => setPreferenceError(error.message));
       if (completedReminder.kind === 'task') {
         const taskId = completedReminder.key.split(':')[2];
         fetch(`/api/tasks/${taskId}`, {
@@ -243,7 +247,7 @@ export default function ReminderManager({ userId }) {
     } else {
       setActiveReminder(null);
     }
-  }, [acknowledgedKey, stopSound]);
+  }, [stopSound]);
 
   const enqueueReminders = useCallback((reminders) => {
     if (!reminders.length) return;
@@ -271,7 +275,7 @@ export default function ReminderManager({ userId }) {
       const now = new Date();
       const date = localDateKey(now);
       const { settings: currentSettings, todayTasks: tasks, routines: routineItems, routineDone: completed, routineAutoDone: automaticallyCompleted } = dataRef.current;
-      if (!currentSettings.enabled) return;
+      if (!currentSettings?.enabled) return;
 
       const due = [];
       if (currentSettings.tasksEnabled) {
@@ -324,7 +328,7 @@ export default function ReminderManager({ userId }) {
   }, [enqueueReminders, storageReady]);
 
   useEffect(() => {
-    if (!activeReminder) return undefined;
+    if (!activeReminder || !settings) return undefined;
     const focusTimer = window.setTimeout(() => document.querySelector('#scheduled-reminder-dismiss')?.focus(), 0);
     if (settings.keepPopupOpen) return () => window.clearTimeout(focusTimer);
     const timer = window.setTimeout(advanceReminder, Math.max(1, settings.popupSeconds) * 1_000);
@@ -332,27 +336,28 @@ export default function ReminderManager({ userId }) {
       window.clearTimeout(focusTimer);
       window.clearTimeout(timer);
     };
-  }, [activeReminder, advanceReminder, settings.keepPopupOpen, settings.popupSeconds]);
+  }, [activeReminder, advanceReminder, settings?.keepPopupOpen, settings?.popupSeconds]);
 
   useEffect(() => {
-    if (!activeReminder || (!settings.enabled && !activeReminder.forceSound)) return undefined;
+    if (!activeReminder || !settings || (!settings.enabled && !activeReminder.forceSound)) return undefined;
     playSound(settings.tone, settings.volume);
     return stopSound;
-  }, [activeReminder, playSound, settings.enabled, settings.tone, settings.volume, stopSound]);
+  }, [activeReminder, playSound, settings?.enabled, settings?.tone, settings?.volume, stopSound]);
 
   useEffect(() => {
-    if (settings.keepPopupOpen) return undefined;
+    if (!settings || settings.keepPopupOpen) return undefined;
     const handleKeyDown = (event) => {
       if (event.key === 'Escape' && activeRef.current) advanceReminder();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [advanceReminder, settings.keepPopupOpen]);
+  }, [advanceReminder, settings?.keepPopupOpen]);
 
   function testSound() {
     unlockAudio();
     window.setTimeout(() => {
       const currentSettings = dataRef.current.settings;
+      if (!currentSettings) return;
       playSound(currentSettings.tone, currentSettings.volume);
     }, 80);
   }
@@ -373,6 +378,7 @@ export default function ReminderManager({ userId }) {
 
   return (
     <>
+      {preferenceError && <div role="alert" className="fixed bottom-4 right-4 z-[90] rounded-lg border border-loss/30 bg-panel px-4 py-3 text-[12px] text-loss shadow-xl">{preferenceError}</div>}
       {activeReminder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md" role="presentation">
           <section role="alertdialog" aria-modal="true" aria-labelledby="scheduled-reminder-title" aria-describedby="scheduled-reminder-copy" className="w-full max-w-xl rounded-3xl border border-win/40 bg-panel p-7 text-center shadow-2xl shadow-black/60 sm:p-10">

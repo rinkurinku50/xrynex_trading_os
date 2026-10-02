@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { LuCopy, LuGripVertical, LuPencil, LuPlus, LuSave, LuTrash2, LuX } from 'react-icons/lu';
 import SelectMenu from '@/components/SelectMenu';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
+import { readPreferences, writePreferences } from '@/lib/client-preferences';
 
 const priorities = ['High', 'Medium', 'Low', 'Bank holiday'];
 const priorityRank = { High: 0, Medium: 1, Low: 2, 'Bank holiday': 3 };
@@ -20,8 +21,6 @@ const priorityBadgeStyles = {
   'Bank holiday': 'border-line bg-panel2 text-muted',
 };
 const priorityIcons = priorityStyles;
-const orderStorageKey = 'xrynex-economic-news-order';
-
 function newYorkInputValue() {
   return new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'America/New_York',
@@ -130,19 +129,22 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
   }, []);
 
   useEffect(() => {
-    if (!news.length) return;
-    try {
-      const savedOrder = JSON.parse(window.localStorage.getItem(orderStorageKey) || '[]');
-      if (!Array.isArray(savedOrder) || !savedOrder.length) return;
+    let mounted = true;
+    readPreferences(['economic-news-order'], {
+      'economic-news-order': 'xrynex-economic-news-order',
+    }).then((saved) => {
+      if (!mounted || !Array.isArray(saved['economic-news-order']) || !saved['economic-news-order'].length) return;
+      const savedOrder = saved['economic-news-order'];
       setNews((current) => [...current].sort((a, b) => {
         const aIndex = savedOrder.indexOf(a.id);
         const bIndex = savedOrder.indexOf(b.id);
         return (aIndex < 0 ? savedOrder.length : aIndex) - (bIndex < 0 ? savedOrder.length : bIndex);
       }));
-    } catch {
-      // Keep server order if browser storage is unavailable.
-    }
-  }, [compact, news.length]);
+    }).catch((loadError) => {
+      if (mounted) setError(loadError.message);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const dashboardNews = compact && nowNY
     ? news.filter((item) => {
@@ -263,7 +265,8 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
     setNews(next);
     setDraggedId(null);
     setDropTarget(null);
-    window.localStorage.setItem(orderStorageKey, JSON.stringify(next.map((item) => item.id)));
+    writePreferences({ 'economic-news-order': next.map((item) => item.id) })
+      .catch((saveError) => setError(saveError.message));
   }
 
   return (

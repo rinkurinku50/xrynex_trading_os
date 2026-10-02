@@ -1,24 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DEFAULT_ROUTINE_TASKS,
-  formatTime12Hour,
-  routineStorageKeys,
-} from '@/lib/routine-data';
+import { formatTime12Hour } from '@/lib/routine-data';
+import { readPreferences, writePreferences } from '@/lib/client-preferences';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ACCENT_SWATCHES = ['#0f766e', '#2563eb', '#ec4899', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#f97316'];
-
-const DEFAULT_CATEGORIES = [
-  { id: 'all', n: 'All routines', c: '#0f766e' },
-  { id: 'health', n: 'Health', c: '#22c55e' },
-  { id: 'work', n: 'Work', c: '#3b82f6' },
-  { id: 'learning', n: 'Learning', c: '#8b5cf6' },
-  { id: 'home', n: 'Home', c: '#f97316' },
-  { id: 'personal', n: 'Personal', c: '#ec4899' },
-];
 
 function toDateKey(date) {
   const year = date.getFullYear();
@@ -259,7 +247,7 @@ function AppearanceSettings({ accent, theme, colorPalette, onAccentChange, onThe
   );
 }
 
-function RoutineList({ tasks, selectedDate, categoryId, done, now, onToggleDone, onOpenEditDialog }) {
+function RoutineList({ tasks, categories, selectedDate, categoryId, done, now, onToggleDone, onOpenEditDialog }) {
   const groups = [
     { key: 'morning', label: 'Morning', start: 0, end: 12 },
     { key: 'afternoon', label: 'Afternoon', start: 12, end: 17 },
@@ -290,12 +278,12 @@ function RoutineList({ tasks, selectedDate, categoryId, done, now, onToggleDone,
               const isDone = (done[toDateKey(selectedDate)] || []).includes(task.id);
               const isScheduledTimePassed = toDateKey(selectedDate) === toDateKey(now)
                 && task.time <= `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-              const category = DEFAULT_CATEGORIES.find((entry) => entry.id === task.cat) || DEFAULT_CATEGORIES[0];
+              const category = categories.find((entry) => entry.id === task.cat);
               return (
                 <div
                   key={task.id}
                   className={`routine-card${isDone ? ' is-done' : ''}`}
-                  style={{ borderLeft: `4px solid ${category.c}` }}
+                  style={{ borderLeft: `4px solid ${category?.c || '#64748b'}` }}
                 >
                   <div className="routine-card-main">
                     <button
@@ -439,12 +427,13 @@ function RoutineDialog({ dialogRef, mode, draft, setDraft, onClose, onSave, onDe
 }
 
 export default function DailyRoutinePlanner({ userId }) {
-  const storageKeys = routineStorageKeys(userId);
+  const legacySuffix = encodeURIComponent(userId || 'workspace');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [tasks, setTasks] = useState(DEFAULT_ROUTINE_TASKS);
+  const [tasks, setTasks] = useState([]);
   const [done, setDone] = useState({});
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState([]);
   const [routineDataLoaded, setRoutineDataLoaded] = useState(false);
+  const [preferenceError, setPreferenceError] = useState('');
   const [autoDone, setAutoDone] = useState({});
   const [now, setNow] = useState(() => new Date());
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -463,32 +452,46 @@ export default function DailyRoutinePlanner({ userId }) {
   const nameInputRef = useRef(null);
 
   useEffect(() => {
-    const savedAccent = localStorage.getItem('routine-accent');
-    const savedTheme = localStorage.getItem('routine-theme');
-    try {
-      const savedTasks = JSON.parse(localStorage.getItem(storageKeys.tasks));
-      const savedDone = JSON.parse(localStorage.getItem(storageKeys.done));
-      const savedAutoDone = JSON.parse(localStorage.getItem(storageKeys.autoDone));
-      const savedCategories = JSON.parse(localStorage.getItem(storageKeys.categories));
-      if (Array.isArray(savedTasks)) setTasks(savedTasks);
-      if (savedDone && typeof savedDone === 'object' && !Array.isArray(savedDone)) setDone(savedDone);
-      if (savedAutoDone && typeof savedAutoDone === 'object' && !Array.isArray(savedAutoDone)) setAutoDone(savedAutoDone);
-      if (Array.isArray(savedCategories) && savedCategories.length) setCategories(savedCategories);
-    } catch {
-      // Fall back to the starter routines if browser storage is unavailable or invalid.
-    }
-    if (savedAccent) setAccent(savedAccent);
-    if (savedTheme) setTheme(savedTheme);
-    setRoutineDataLoaded(true);
-  }, [storageKeys.autoDone, storageKeys.categories, storageKeys.done, storageKeys.tasks]);
+    let mounted = true;
+    readPreferences([
+      'routine-tasks', 'routine-done', 'routine-auto-done', 'routine-categories', 'routine-accent', 'routine-theme',
+    ], {
+      'routine-tasks': `xrynex-routine-tasks:${legacySuffix}`,
+      'routine-done': `xrynex-routine-done:${legacySuffix}`,
+      'routine-auto-done': `xrynex-routine-auto-done:${legacySuffix}`,
+      'routine-categories': `xrynex-routine-categories:${legacySuffix}`,
+      'routine-accent': 'routine-accent',
+      'routine-theme': 'routine-theme',
+    }).then((saved) => {
+      if (!mounted) return;
+      if (Array.isArray(saved['routine-tasks'])) setTasks(saved['routine-tasks']);
+      if (saved['routine-done'] && typeof saved['routine-done'] === 'object' && !Array.isArray(saved['routine-done'])) setDone(saved['routine-done']);
+      if (saved['routine-auto-done'] && typeof saved['routine-auto-done'] === 'object' && !Array.isArray(saved['routine-auto-done'])) setAutoDone(saved['routine-auto-done']);
+      if (Array.isArray(saved['routine-categories']) && saved['routine-categories'].length) setCategories(saved['routine-categories']);
+      if (typeof saved['routine-accent'] === 'string') setAccent(saved['routine-accent']);
+      if (typeof saved['routine-theme'] === 'string') setTheme(saved['routine-theme']);
+    }).catch((error) => {
+      if (mounted) setPreferenceError(error.message);
+    }).finally(() => {
+      if (mounted) setRoutineDataLoaded(true);
+    });
+    return () => { mounted = false; };
+  }, [legacySuffix]);
 
   useEffect(() => {
     if (!routineDataLoaded) return;
-    localStorage.setItem(storageKeys.tasks, JSON.stringify(tasks));
-    localStorage.setItem(storageKeys.done, JSON.stringify(done));
-    localStorage.setItem(storageKeys.autoDone, JSON.stringify(autoDone));
-    window.dispatchEvent(new Event(storageKeys.updatedEvent));
-  }, [autoDone, done, routineDataLoaded, storageKeys.autoDone, storageKeys.done, storageKeys.tasks, storageKeys.updatedEvent, tasks]);
+    const timer = window.setTimeout(() => {
+      writePreferences({
+        'routine-tasks': tasks,
+        'routine-done': done,
+        'routine-auto-done': autoDone,
+        'routine-categories': categories,
+        'routine-accent': accent,
+        'routine-theme': theme,
+      }).then(() => setPreferenceError('')).catch((error) => setPreferenceError(error.message));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [accent, autoDone, categories, done, routineDataLoaded, tasks, theme]);
 
   useEffect(() => {
     const updateClockAndAutoComplete = () => {
@@ -520,27 +523,12 @@ export default function DailyRoutinePlanner({ userId }) {
         : autoDone;
       if (newlyCompleted.length) setDone(nextDone);
       if (newlyAutoDone.length) setAutoDone(nextAutoDone);
-      localStorage.setItem(storageKeys.done, JSON.stringify(nextDone));
-      localStorage.setItem(storageKeys.autoDone, JSON.stringify(nextAutoDone));
-      window.dispatchEvent(new Event(storageKeys.updatedEvent));
     };
 
     updateClockAndAutoComplete();
     const timer = window.setInterval(updateClockAndAutoComplete, 15_000);
     return () => window.clearInterval(timer);
-  }, [autoDone, done, routineDataLoaded, selectedDate, storageKeys.autoDone, storageKeys.done, storageKeys.updatedEvent, tasks]);
-
-  useEffect(() => {
-    if (routineDataLoaded) localStorage.setItem(storageKeys.categories, JSON.stringify(categories));
-  }, [categories, routineDataLoaded, storageKeys.categories]);
-
-  useEffect(() => {
-    localStorage.setItem('routine-accent', accent);
-  }, [accent]);
-
-  useEffect(() => {
-    localStorage.setItem('routine-theme', theme);
-  }, [theme]);
+  }, [autoDone, done, routineDataLoaded, selectedDate, tasks]);
 
   const routineShellStyle = {
     '--bg': '#0a0e13',
@@ -667,6 +655,7 @@ export default function DailyRoutinePlanner({ userId }) {
 
   return (
     <div className="routine-shell" style={routineShellStyle}>
+      {preferenceError && <p role="alert" className="mx-4 mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{preferenceError}</p>}
       <div className="routine-layout">
         <aside className="routine-sidebar-stack">
           <HeaderCard selectedDate={selectedDate} tasks={tasks} done={done} />
@@ -700,6 +689,7 @@ export default function DailyRoutinePlanner({ userId }) {
 
           <RoutineList
             tasks={tasks}
+            categories={categories}
             selectedDate={selectedDate}
             categoryId={selectedCategory}
             done={done}

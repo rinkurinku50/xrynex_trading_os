@@ -2,43 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { LuCheck, LuChevronDown, LuGripVertical, LuPencil, LuPlus, LuSettings, LuTrash2 } from 'react-icons/lu';
+import { readPreferences, writePreferences } from '@/lib/client-preferences';
 import SelectMenu from '@/components/SelectMenu';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
 
-const initialGroups = [
-  {
-    id: 'pre-market',
-    title: 'Pre-market',
-    rules: [
-      { id: 'calendar', title: 'Review economic calendar and news', required: false },
-      { id: 'levels', title: 'Mark key levels and higher-timeframe trend', required: true },
-      { id: 'bias', title: 'Define bias and the only setups I trade today', required: true },
-      { id: 'loss-limit', title: 'Confirm daily loss limit is set', required: true },
-      { id: 'focus', title: 'Write the one thing I must execute well', required: true },
-    ],
-  },
-  {
-    id: 'entry-criteria',
-    title: 'Entry criteria',
-    rules: [
-      { id: 'plan-match', title: 'Setup matches my written plan', required: true },
-      { id: 'trend', title: 'Trend and momentum confirm the direction', required: false },
-      { id: 'trigger', title: 'Entry trigger has printed, no anticipating', required: true },
-      { id: 'risk-reward', title: 'Risk-to-reward is at least 2:1', required: true },
-    ],
-  },
-  {
-    id: 'review',
-    title: 'Review',
-    rules: [
-      { id: 'journal', title: 'Journal the trade with a screenshot', required: true },
-      { id: 'mistake', title: 'Record one lesson without judging the outcome', required: false },
-    ],
-  },
-];
-
-const storageKey = 'xrynex-trading-plan-checklist';
-const defaultRequirements = ['Must pass', 'Optional'];
+const protectedRequirements = new Set(['Must pass', 'Optional']);
 
 function requirementFor(rule) {
   return rule.requirement || (rule.required ? 'Must pass' : 'Optional');
@@ -46,11 +14,11 @@ function requirementFor(rule) {
 
 export default function TradingPlanChecklist() {
   const confirm = useConfirmDialog();
-  const [groups, setGroups] = useState(initialGroups);
+  const [groups, setGroups] = useState([]);
   const [collapsed, setCollapsed] = useState({});
   const [filter, setFilter] = useState('All');
-  const [sessions, setSessions] = useState(6);
-  const [requirements, setRequirements] = useState(defaultRequirements);
+  const [sessions, setSessions] = useState(0);
+  const [requirements, setRequirements] = useState([]);
   const [newRequirements, setNewRequirements] = useState({});
   const [newGroupTitle, setNewGroupTitle] = useState('');
   const [newRequirementValue, setNewRequirementValue] = useState('');
@@ -59,10 +27,15 @@ export default function TradingPlanChecklist() {
   const [draggedGroup, setDraggedGroup] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [preferenceError, setPreferenceError] = useState('');
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
+    let mounted = true;
+    readPreferences(['trading-plan-checklist'], {
+      'trading-plan-checklist': 'xrynex-trading-plan-checklist',
+    }).then((savedValues) => {
+      if (!mounted) return;
+      const saved = savedValues['trading-plan-checklist'];
       if (saved?.groups) {
         setGroups(saved.groups.map((group) => ({
           ...group,
@@ -71,14 +44,22 @@ export default function TradingPlanChecklist() {
       }
       if (saved?.sessions) setSessions(saved.sessions);
       if (Array.isArray(saved?.requirements) && saved.requirements.length) setRequirements([...new Set(saved.requirements)]);
-    } catch {
-      // Use the starter checklist when browser storage is unavailable.
-    }
-    setHydrated(true);
+    }).catch((error) => {
+      if (mounted) setPreferenceError(error.message);
+    }).finally(() => {
+      if (mounted) setHydrated(true);
+    });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
-    if (hydrated) window.localStorage.setItem(storageKey, JSON.stringify({ groups, sessions, requirements }));
+    if (!hydrated) return undefined;
+    const timer = window.setTimeout(() => {
+      writePreferences({ 'trading-plan-checklist': { groups, sessions, requirements } })
+        .then(() => setPreferenceError(''))
+        .catch((error) => setPreferenceError(error.message));
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [groups, hydrated, requirements, sessions]);
 
   const stats = useMemo(() => {
@@ -172,7 +153,7 @@ export default function TradingPlanChecklist() {
   }
 
   async function removeRequirement(value) {
-    if (defaultRequirements.includes(value)) return;
+    if (protectedRequirements.has(value)) return;
     const accepted = await confirm({
       title: 'Remove requirement value?',
       message: `“${value}” will be removed. Rules using it will become Optional.`,
@@ -205,8 +186,13 @@ export default function TradingPlanChecklist() {
     setDropTarget(null);
   }
 
+  if (!hydrated && !preferenceError) {
+    return <section className="panel px-5 py-8 text-sm text-muted">Loading Trading Plan checklist…</section>;
+  }
+
   return (
     <section className="overflow-visible rounded-xl border border-line bg-[#0e1a24] shadow-xl shadow-black/10">
+      {preferenceError && <p role="alert" className="border-b border-loss/20 bg-loss/10 px-4 py-2 text-[12px] text-loss">{preferenceError}</p>}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-[#0a141d] px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-win text-ink" aria-hidden>✓</span>
@@ -251,7 +237,7 @@ export default function TradingPlanChecklist() {
             {requirements.map((value) => (
               <div key={value} className="inline-flex items-center gap-1 rounded-lg border border-line bg-ink px-2 py-1 text-[12px] text-text">
                 <span>{value}</span>
-                {defaultRequirements.includes(value) ? <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">Built in</span> : <>
+                {protectedRequirements.has(value) ? <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">Built in</span> : <>
                   <button type="button" className="rounded p-1 text-muted hover:bg-panel2 hover:text-info" aria-label={`Edit ${value}`} title={`Edit ${value}`} onClick={() => editRequirement(value)}><LuPencil className="h-3.5 w-3.5" aria-hidden /></button>
                   <button type="button" className="rounded p-1 text-muted hover:bg-panel2 hover:text-loss" aria-label={`Remove ${value}`} title={`Remove ${value}`} onClick={() => removeRequirement(value)}><LuTrash2 className="h-3.5 w-3.5" aria-hidden /></button>
                 </>}

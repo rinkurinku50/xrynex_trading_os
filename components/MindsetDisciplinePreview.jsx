@@ -7,9 +7,24 @@ import { DashboardTabsContext } from '@/components/DashboardTabs';
 export default function MindsetDisciplinePreview() {
   const dashboardTabs = useContext(DashboardTabsContext);
   const [weekday, setWeekday] = useState('');
+  const [tip, setTip] = useState(null);
 
   useEffect(() => {
-    setWeekday(new Date().toLocaleDateString(undefined, { weekday: 'long' }));
+    let mounted = true;
+    const today = new Date();
+    setWeekday(today.toLocaleDateString(undefined, { weekday: 'long' }));
+    fetch('/api/mindset', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!mounted || !data) return;
+        const defaultTips = data.categories.find((category) => category.isDefault)?.tips || [];
+        if (!defaultTips.length) return;
+        const yearStart = new Date(today.getFullYear(), 0, 0);
+        const dayIndex = Math.floor((today - yearStart) / 86400000) % defaultTips.length;
+        setTip(defaultTips[dayIndex]);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
   }, []);
 
   return (
@@ -24,8 +39,8 @@ export default function MindsetDisciplinePreview() {
           <div className="mindset-preview-feature">
             <span className="mindset-preview-icon" aria-hidden="true">✦</span>
             <div className="min-w-0">
-              <h2>Start before you feel ready.</h2>
-              <p>Waiting for motivation can leave you stuck. <strong>Take one small step; momentum follows.</strong></p>
+              <h2>{tip?.title || 'No mindset focus saved'}</h2>
+              <p>{tip?.action || 'Open Mindset & Discipline to review your saved focus.'}</p>
             </div>
           </div>
         </div>

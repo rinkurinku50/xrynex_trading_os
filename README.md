@@ -1,23 +1,25 @@
 # Xrynex Trading OS
 
-A trading workspace built on Next.js 14 (App Router) and Prisma with PostgreSQL as the database layer. Charts, screenshots and videos are not uploaded anywhere — you paste a Google Drive share link and the app renders it.
+A trading workspace built on Next.js and Prisma. Local development uses SQLite at `prisma/dev.db`; production continues to use PostgreSQL. Charts, screenshots and videos are not uploaded anywhere — you paste a Google Drive share link and the app renders it.
 
 ## Run it
 
 ```bash
 npm install
 cp .env.example .env
-# update DATABASE_URL to your local or hosted PostgreSQL database
-npx prisma db push
-node scripts/seed-prisma.mjs   # optional: safely add demo rows; preserves existing data
-npm run dev                   # http://localhost:3000
+# Existing local PostgreSQL data: copy it into prisma/dev.db once
+npm run db:migrate:sqlite
+# Fresh local database instead: npm run db:setup
+npm run dev                    # http://localhost:3000
 ```
+
+Local development uses `SQLITE_DATABASE_URL`; keep `DATABASE_URL` for PostgreSQL source migration and hosted production. The migration preserves the source database and refuses to copy into a non-empty SQLite destination. Local database and generated-client files are ignored by Git.
 
 The demo seed can be run more than once. It only inserts missing examples and never clears existing records. Demo chart cards use a bundled illustration; demo Drive folders point to Drive’s My Drive page until you replace them with your own folder links.
 
-The seed script adds clearly labeled `DEMO` examples to the existing account selected by `SEED_USER_EMAIL` (or the first address in `ADMIN_EMAILS`). It covers the dashboard, daily tasks/history, ideas/questions/archive, strategy lab, videos, charts, concepts, Drive folders, focus settings, and the Trading Plan calendar screenshot. It will not create an account or delete/overwrite existing user records. In local development, run it with the environment file loaded, for example `node --env-file=.env scripts/seed-prisma.mjs`.
+The seed script adds clearly labeled `DEMO` examples to the existing account selected by `SEED_USER_EMAIL` (or the first address in `ADMIN_EMAILS`). It covers the dashboard, daily tasks/history, ideas/questions/archive, strategy lab, videos, charts, concepts, Drive folders, focus settings, economic news, mistake reviews, routine preferences, the Trading Plan checklist, and its calendar screenshot. Missing preference keys are initialized without replacing saved settings; existing records are preserved. In local development, run it with the environment file loaded, for example `node --env-file=.env scripts/seed-prisma.mjs`.
 
-For a local Postgres instance, use a URL like:
+For a PostgreSQL source or hosted deployment, use a URL like:
 
 ```bash
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/trading_os?schema=public"
@@ -25,15 +27,13 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/trading_os?schema=pu
 
 For a hosted Postgres database, use the provider URL and keep the `?schema=public` suffix if needed.
 
-### Switch between local Postgres and Neon
+### Local SQLite and PostgreSQL
 
-The app uses the `DATABASE_URL` in the project-root `.env` file for local development. Stop the dev server before switching, change only that value, then restart `npm run dev`:
+`npm run dev` uses SQLite when `SQLITE_DATABASE_URL` is configured. Its file is `prisma/dev.db`. Run `npm run prisma:push` after local schema changes.
 
-- **Local development:** set `DATABASE_URL` to your local PostgreSQL URL, for example `postgresql://postgres:postgres@localhost:5432/trading_os?schema=public`.
-- **Test against Neon:** set it to the Neon **pooled** connection URL (pooler hostname, SSL required, and `pgbouncer=true` if needed). Every app write will now go to Neon, so use this only intentionally.
-- **Switch back:** stop the dev server, restore the local URL in `.env`, and start it again.
+`npm run db:migrate:sqlite` copies all Prisma model rows from the PostgreSQL database in `DATABASE_URL`, leaving PostgreSQL untouched. It stops if the SQLite destination already contains rows. Use `npm run prisma:push:postgres` to update a PostgreSQL schema.
 
-The `.env` file is ignored by Git; never commit database URLs or passwords. Vercel has its own `DATABASE_URL` in **Project Settings → Environment Variables**. Editing local `.env` does not change production; update the Vercel variable and redeploy to switch the deployed app. Use Neon’s **direct, unpooled** URL only for Prisma schema operations such as `npx prisma db push`, and review any proposed schema changes before accepting them.
+Production always uses PostgreSQL through `DATABASE_URL`; `SQLITE_DATABASE_URL` does not change the deployed provider. The `.env` file is ignored by Git; never commit database URLs or passwords. Vercel has its own `DATABASE_URL` in **Project Settings → Environment Variables**. Use Neon’s **direct, unpooled** URL only for schema operations and review any proposed changes before accepting them.
 
 ## Deploy with Neon and Vercel
 
@@ -43,7 +43,7 @@ This is a server-rendered Next.js app with Prisma/PostgreSQL; deploy it as a Ver
 2. Before deploying, apply the Prisma schema to the new Neon database using its **direct, unpooled** connection string:
 
   ```sh
-  DATABASE_URL="<Neon direct connection string>" npx prisma db push
+  DATABASE_URL="<Neon direct connection string>" npm run prisma:push:postgres
   ```
 
   Review any Prisma warning before accepting it. `db push` can change or drop columns when the database and schema differ. For an empty Neon database, it creates the current app schema. Do not point this at a database with important data until you have a backup and reviewed the proposed changes.
@@ -96,7 +96,7 @@ The app uses database-backed sessions with random opaque tokens stored only as S
 Set `APP_URL` to the exact canonical origin (`https://...` in production). For production, terminate TLS at a trusted proxy and configure it to overwrite `X-Real-IP` / `X-Forwarded-For`, since these headers are used for auth rate limiting. Apply database schema updates before starting the app:
 
 ```sh
-npx prisma db push
+npm run prisma:push:postgres
 npm run build
 npm run start
 ```

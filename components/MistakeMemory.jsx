@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiX } from 'react-icons/fi';
-import { mistakeStorage, rankMistakes } from '@/lib/mistake-memory';
+import { rankMistakes } from '@/lib/mistake-memory';
 
 const categories = ['Psychology', 'Risk Management', 'Entry', 'Exit', 'Discipline', 'Strategy'];
 const severities = ['Critical', 'High', 'Medium', 'Low'];
@@ -12,6 +12,24 @@ const severityStyles = {
   Medium: 'border-sky-500/35 bg-sky-500/[0.08] text-sky-300',
   Low: 'border-slate-500/35 bg-slate-500/[0.06] text-slate-400',
 };
+
+async function requestMistakeApi(method, body) {
+  const response = await fetch('/api/trading-mistakes', {
+    method,
+    cache: 'no-store',
+    ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Could not save mistake data.');
+  return result;
+}
+
+function normalizeMistake(mistake) {
+  return {
+    ...mistake,
+    acknowledged: Boolean(mistake.acknowledgedAt && new Date(mistake.acknowledgedAt).toDateString() === new Date().toDateString()),
+  };
+}
 
 function formatOccurrence(value) {
   if (!value) return 'No occurrence recorded';
@@ -208,46 +226,67 @@ function MistakeCard({ mistake, onAcknowledge, onEdit, onDelete, onHappened }) {
 export default function MistakeMemory() {
   const [mistakes, setMistakes] = useState([]);
   const [lastReviewed, setLastReviewed] = useState(null);
+  const [reviewPoints, setReviewPoints] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All categories');
   const [severity, setSeverity] = useState('All severities');
   const [formMistake, setFormMistake] = useState(undefined);
-  const [reviewPoints, setReviewPoints] = useState([]);
-  const [reviewPointsLoaded, setReviewPointsLoaded] = useState(false);
   const [formReviewPoint, setFormReviewPoint] = useState(undefined);
   const [pendingOccurrence, setPendingOccurrence] = useState(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
 
   useEffect(() => {
-    const loaded = mistakeStorage.load();
-    const savedPoints = mistakeStorage.loadReviewPoints();
-    setMistakes(loaded);
-    setLastReviewed(mistakeStorage.loadLastReviewed());
-    mistakeStorage.save(loaded);
-    setReviewPoints(savedPoints ?? rankMistakes(loaded.filter((mistake) => mistake.active)).slice(0, 3).map((mistake) => ({
-      id: `rule-${mistake.id}`,
-      text: mistake.preventionRule,
-    })));
-    setReviewPointsLoaded(true);
-  }, []);
+    let mounted = true;
+    async function load() {
+      try {
+        const importKeys = [];
+        const legacyMistakes = [];
+        for (const key of ['tradingMistakes.v1', 'xrynex-mistake-memory-v1']) {
+          const raw = window.localStorage.getItem(key);
+          if (raw === null) continue;
+          const saved = JSON.parse(raw);
+          if (!Array.isArray(saved)) throw new Error('Saved browser mistake data is invalid; it was not removed.');
+          legacyMistakes.push(...saved);
+          importKeys.push(key);
+        }
+        const savedPointsRaw = window.localStorage.getItem('xrynex-mistake-memory-review-points-v1');
+        const legacyPoints = savedPointsRaw === null ? [] : JSON.parse(savedPointsRaw);
+        if (!Array.isArray(legacyPoints)) throw new Error('Saved browser review points are invalid; they were not removed.');
+        if (savedPointsRaw !== null) importKeys.push('xrynex-mistake-memory-review-points-v1');
+        const legacyReview = window.localStorage.getItem('xrynex-mistake-memory-last-reviewed');
+        if (legacyReview !== null) importKeys.push('xrynex-mistake-memory-last-reviewed');
 
-  useEffect(() => {
-    function syncMistakes(event) {
-      if (event.key !== 'tradingMistakes.v1') return;
-      setMistakes(mistakeStorage.load());
+        if (importKeys.length) {
+          await requestMistakeApi('POST', {
+            action: 'import-legacy',
+            mistakes: legacyMistakes,
+            reviewPoints: legacyPoints,
+            lastReviewed: legacyReview,
+          });
+          for (const key of importKeys) window.localStorage.removeItem(key);
+        }
+
+        const data = await requestMistakeApi('GET');
+        if (!mounted) return;
+        setMistakes(data.mistakes.map(normalizeMistake));
+        setReviewPoints(data.reviewPoints);
+        setLastReviewed(data.lastReviewed);
+        setError('');
+      } catch (loadError) {
+        if (mounted) setError(loadError.message);
+      } finally {
+        if (mounted) setLoaded(true);
+      }
     }
-
-    window.addEventListener('storage', syncMistakes);
-    return () => window.removeEventListener('storage', syncMistakes);
+    load();
+    window.addEventListener('focus', load);
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', load);
+    };
   }, []);
-
-  useEffect(() => {
-    if (mistakes.length) mistakeStorage.save(mistakes);
-  }, [mistakes]);
-
-  useEffect(() => {
-    if (reviewPointsLoaded) mistakeStorage.saveReviewPoints(reviewPoints);
-  }, [reviewPoints, reviewPointsLoaded]);
 
   const ranked = useMemo(() => rankMistakes(mistakes.filter((mistake) => mistake.active)), [mistakes]);
   const repeated = [...ranked].sort((first, second) =>
@@ -264,20 +303,24 @@ export default function MistakeMemory() {
   }, [ranked, search, category, severity]);
   const reviewedToday = lastReviewed && new Date(lastReviewed).toDateString() === new Date().toDateString();
 
-  function updateMistake(id, changes) {
-    setMistakes((current) => current.map((mistake) => {
-      if (mistake.id !== id) return mistake;
-      const acknowledgedDate = Object.hasOwn(changes, 'acknowledged')
-        ? changes.acknowledged ? new Date().toDateString() : null
-        : mistake.acknowledgedDate;
-      return { ...mistake, ...changes, acknowledgedDate, updatedAt: new Date().toISOString() };
-    }));
+  async function updateMistake(id, changes) {
+    try {
+      const updated = await requestMistakeApi('PATCH', { type: 'mistake', id, ...changes });
+      setMistakes((current) => current.map((mistake) => mistake.id === id ? normalizeMistake(updated) : mistake));
+      setError('');
+    } catch (updateError) {
+      setError(updateError.message);
+    }
   }
 
-  function markReviewed() {
-    const timestamp = new Date().toISOString();
-    mistakeStorage.saveLastReviewed(timestamp);
-    setLastReviewed(timestamp);
+  async function markReviewed() {
+    try {
+      const result = await requestMistakeApi('POST', { action: 'review' });
+      setLastReviewed(result.lastReviewed);
+      setError('');
+    } catch (reviewError) {
+      setError(reviewError.message);
+    }
   }
 
   function startTradingSession() {
@@ -300,59 +343,69 @@ export default function MistakeMemory() {
     }
   }
 
-  function saveReviewPoint(text) {
-    if (formReviewPoint) {
-      setReviewPoints((current) => current.map((point) => point.id === formReviewPoint.id ? { ...point, text } : point));
-    } else {
-      setReviewPoints((current) => [...current, { id: window.crypto?.randomUUID?.() || `rule-${Date.now()}`, text }]);
+  async function saveReviewPoint(text) {
+    try {
+      const point = formReviewPoint
+        ? await requestMistakeApi('PATCH', { type: 'review-point', id: formReviewPoint.id, text })
+        : await requestMistakeApi('POST', { action: 'create-review-point', text });
+      setReviewPoints((current) => formReviewPoint
+        ? current.map((item) => item.id === point.id ? point : item)
+        : [...current, point]);
+      setFormReviewPoint(undefined);
+      setError('');
+    } catch (saveError) {
+      setError(saveError.message);
     }
-    setFormReviewPoint(undefined);
   }
 
-  function deleteReviewPoint(point) {
+  async function deleteReviewPoint(point) {
     if (!window.confirm('Remove this point from Before You Trade?')) return;
-    setReviewPoints((current) => current.filter((item) => item.id !== point.id));
-  }
-
-  function saveMistake(values) {
-    const now = new Date().toISOString();
-    if (formMistake) {
-      updateMistake(formMistake.id, values);
-    } else {
-      setMistakes((current) => [...current, {
-        ...values,
-        id: window.crypto?.randomUUID?.() || `mistake-${Date.now()}`,
-        frequency: 0,
-        lastOccurred: now,
-        active: true,
-        acknowledged: false,
-        createdAt: now,
-        updatedAt: now,
-      }]);
+    try {
+      await requestMistakeApi('DELETE', { type: 'review-point', id: point.id });
+      setReviewPoints((current) => current.filter((item) => item.id !== point.id));
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError.message);
     }
-    setFormMistake(undefined);
   }
 
-  function deleteMistake(mistake) {
+  async function saveMistake(values) {
+    try {
+      const saved = formMistake
+        ? await requestMistakeApi('PATCH', { type: 'mistake', id: formMistake.id, ...values })
+        : await requestMistakeApi('POST', { action: 'create-mistake', ...values });
+      const mistake = normalizeMistake(saved);
+      setMistakes((current) => formMistake
+        ? current.map((item) => item.id === mistake.id ? mistake : item)
+        : [...current, mistake]);
+      setFormMistake(undefined);
+      setError('');
+    } catch (saveError) {
+      setError(saveError.message);
+    }
+  }
+
+  async function deleteMistake(mistake) {
     if (!window.confirm(`Delete "${mistake.title}" from your mistake memory?`)) return;
-    setMistakes((current) => current.filter((item) => item.id !== mistake.id));
+    try {
+      await requestMistakeApi('DELETE', { type: 'mistake', id: mistake.id });
+      setMistakes((current) => current.filter((item) => item.id !== mistake.id));
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError.message);
+    }
   }
 
-  function recordOccurrence() {
+  async function recordOccurrence() {
     if (!pendingOccurrence) return;
-    const now = new Date().toISOString();
-    const recentOccurrences = [...new Set([
-      now,
-      ...(pendingOccurrence.recentOccurrences || []),
-      pendingOccurrence.lastOccurred,
-    ].filter(Boolean))].slice(0, 5);
-    updateMistake(pendingOccurrence.id, {
-      frequency: (Number(pendingOccurrence.frequency) || 0) + 1,
-      lastOccurred: now,
-      recentOccurrences,
-      acknowledged: false,
-    });
-    setPendingOccurrence(null);
+    try {
+      const updated = await requestMistakeApi('POST', { action: 'record-occurrence', id: pendingOccurrence.id });
+      setMistakes((current) => current.map((mistake) => mistake.id === updated.id ? normalizeMistake(updated) : mistake));
+      setPendingOccurrence(null);
+      setError('');
+    } catch (recordError) {
+      setError(recordError.message);
+    }
   }
 
   return (
@@ -375,6 +428,8 @@ export default function MistakeMemory() {
           <p className="mt-1.5 text-[11px] text-slate-500">Last reviewed: <span className="text-slate-300">{formatReview(lastReviewed)}</span></p>
         </div>
       </header>
+
+      {error && <p role="alert" className="mt-4 rounded-lg border border-red-500/30 bg-red-500/[0.08] px-3 py-2 text-xs text-red-300">{error}</p>}
 
       <section className="mt-6" aria-label="Most repeated mistakes">
         <div className="flex flex-wrap items-center gap-2">
@@ -412,7 +467,7 @@ export default function MistakeMemory() {
         <button type="button" onClick={() => setFormMistake(null)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.09] bg-white/[0.06] px-3 py-2.5 text-xs font-semibold text-slate-200 transition hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-200"><FiPlus size={14} /> Add Mistake</button>
       </div>
 
-      {visible.length ? <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">{visible.map((mistake) => <MistakeCard key={mistake.id} mistake={mistake} onAcknowledge={(id, acknowledged) => updateMistake(id, { acknowledged })} onEdit={setFormMistake} onDelete={deleteMistake} onHappened={setPendingOccurrence} />)}</div> : (
+      {!loaded ? <p className="mt-4 text-sm text-slate-400">Loading your saved mistakes…</p> : visible.length ? <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">{visible.map((mistake) => <MistakeCard key={mistake.id} mistake={mistake} onAcknowledge={(id, acknowledged) => updateMistake(id, { acknowledged })} onEdit={setFormMistake} onDelete={deleteMistake} onHappened={setPendingOccurrence} />)}</div> : (
         <div className="mt-3 rounded-xl border border-dashed border-white/[0.1] px-5 py-12 text-center">
           <p className="text-sm font-medium text-slate-300">No mistakes match these filters.</p>
           <p className="mt-1 text-xs text-slate-500">Adjust your search or filters to see your mistake memory.</p>

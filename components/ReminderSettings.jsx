@@ -3,21 +3,11 @@
 import { useEffect, useState } from 'react';
 import { LuBellRing, LuVolume2 } from 'react-icons/lu';
 import {
-  DEFAULT_REMINDER_SETTINGS,
-  reminderSettingsKey,
   reminderSettingsUpdatedEvent,
   reminderTestNotificationEvent,
   reminderTestSoundEvent,
 } from '@/lib/reminder-settings';
-
-function readSettings(key) {
-  try {
-    const saved = JSON.parse(localStorage.getItem(key));
-    return { ...DEFAULT_REMINDER_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
-  } catch {
-    return DEFAULT_REMINDER_SETTINGS;
-  }
-}
+import { readPreferences, writePreferences } from '@/lib/client-preferences';
 
 function SettingsToggle({ checked, onChange, label }) {
   return (
@@ -30,25 +20,37 @@ function SettingsToggle({ checked, onChange, label }) {
 }
 
 export default function ReminderSettings({ userId }) {
-  const settingsKey = reminderSettingsKey(userId);
   const settingsEvent = reminderSettingsUpdatedEvent(userId);
-  const [settings, setSettings] = useState(DEFAULT_REMINDER_SETTINGS);
+  const [settings, setSettings] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setSettings(readSettings(settingsKey));
-    setLoaded(true);
-  }, [settingsKey]);
-
-  useEffect(() => {
-    if (loaded) localStorage.setItem(settingsKey, JSON.stringify(settings));
-  }, [loaded, settings, settingsKey]);
+    let mounted = true;
+    readPreferences(['reminder-settings'], {
+      'reminder-settings': `xrynex-reminder-settings:${userId}`,
+    }).then((saved) => {
+      if (mounted) setSettings(saved['reminder-settings'] || null);
+    }).catch((loadError) => {
+      if (mounted) setError(loadError.message);
+    }).finally(() => {
+      if (mounted) setLoaded(true);
+    });
+    return () => { mounted = false; };
+  }, [userId]);
 
   function updateSettings(changes) {
+    if (!loaded || !settings) return;
     const next = { ...settings, ...changes };
     setSettings(next);
-    localStorage.setItem(settingsKey, JSON.stringify(next));
-    window.dispatchEvent(new Event(settingsEvent));
+    writePreferences({ 'reminder-settings': next }).then(() => {
+      setError('');
+      window.dispatchEvent(new Event(settingsEvent));
+    }).catch((saveError) => setError(saveError.message));
+  }
+
+  if (!loaded || !settings) {
+    return <section className="panel"><div className="panel-body text-sm text-muted">Loading saved reminder settings…</div></section>;
   }
 
   return (
@@ -64,6 +66,7 @@ export default function ReminderSettings({ userId }) {
           </div>
         </div>
       </div>
+      {error && <p role="alert" className="border-b border-loss/20 bg-loss/10 px-4 py-2 text-[12px] text-loss">{error}</p>}
       <div className="panel-body space-y-5">
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line bg-panel2/50 p-4">
           <span>

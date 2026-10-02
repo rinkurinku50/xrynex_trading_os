@@ -2,7 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { FiCheck, FiChevronLeft, FiChevronRight, FiPlus, FiTrash2 } from 'react-icons/fi';
-import { DEFAULT_TAB, DEFAULT_TIPS, dayOfYear, readDailyCheckStore, writeDailyCheckStore } from '@/lib/daily-check-data';
+
+async function requestMindsetApi(method, body) {
+  const response = await fetch('/api/mindset', {
+    method,
+    cache: 'no-store',
+    ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Could not save mindset data.');
+  return result;
+}
+
+const LEGACY_STORAGE_KEY = 'tradingOsDailyCheckV1';
+
+function dayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / 86400000);
+}
 
 function markedText(text) {
   return String(text || '').split(/\*\*(.+?)\*\*/g).map((part, index) => (
@@ -11,89 +28,135 @@ function markedText(text) {
 }
 
 export default function DailyCheck() {
-  const [store, setStore] = useState({ tabs: [], tips: [] });
+  const [categories, setCategories] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [activeTab, setActiveTab] = useState(DEFAULT_TAB.id);
+  const [activeTab, setActiveTab] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [date, setDate] = useState(null);
   const [addingTab, setAddingTab] = useState(false);
   const [tabName, setTabName] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setStore(readDailyCheckStore());
-    setDate(new Date());
-    setLoaded(true);
+    let mounted = true;
+    async function load() {
+      try {
+        const saved = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (saved !== null) {
+          let legacy;
+          try {
+            legacy = JSON.parse(saved);
+          } catch {
+            throw new Error('Saved browser mindset data is invalid; it was not removed.');
+          }
+          if (!legacy || !Array.isArray(legacy.tabs) || !Array.isArray(legacy.tips)) {
+            throw new Error('Saved browser mindset data is invalid; it was not removed.');
+          }
+          await requestMindsetApi('POST', { type: 'import-legacy', tabs: legacy.tabs, tips: legacy.tips });
+          window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+        }
+        const data = await requestMindsetApi('GET');
+        if (!mounted) return;
+        setCategories(data.categories);
+        setActiveTab(data.categories.find((category) => category.isDefault)?.id || data.categories[0]?.id || '');
+        setDate(new Date());
+      } catch (loadError) {
+        if (mounted) setError(loadError.message);
+      } finally {
+        if (mounted) setLoaded(true);
+      }
+    }
+    load();
+    return () => { mounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (loaded) writeDailyCheckStore(store);
-  }, [loaded, store]);
-
-  const tabs = [DEFAULT_TAB, ...store.tabs];
-  const tips = [
-    ...(activeTab === DEFAULT_TAB.id ? DEFAULT_TIPS.map((tip, index) => ({ ...tip, id: `default-${index}` })) : []),
-    ...store.tips.filter((tip) => tip.tab === activeTab),
-  ];
+  const activeCategory = categories.find((category) => category.id === activeTab);
+  const tips = activeCategory?.tips || [];
   const selectedIndex = Math.min(currentIndex, Math.max(0, tips.length - 1));
   const selectedTip = tips[selectedIndex];
   const todayIndex = date && tips.length ? dayOfYear(date) % tips.length : 0;
-  const hue = (208 + Math.max(0, tabs.findIndex((tab) => tab.id === activeTab)) * 62 + selectedIndex * 19) % 360;
+  const hue = (208 + Math.max(0, categories.findIndex((category) => category.id === activeTab)) * 62 + selectedIndex * 19) % 360;
 
   function chooseTab(id) {
+    const nextTips = categories.find((category) => category.id === id)?.tips || [];
     setActiveTab(id);
-    const nextTips = [
-      ...(id === DEFAULT_TAB.id ? DEFAULT_TIPS : []),
-      ...store.tips.filter((tip) => tip.tab === id),
-    ];
     setCurrentIndex(date && nextTips.length ? dayOfYear(date) % nextTips.length : 0);
   }
 
-  function addTab(event) {
+  async function addTab(event) {
     event.preventDefault();
     const name = tabName.trim();
     if (!name) return;
-    const tab = { id: `tab-${Date.now()}`, name };
-    setStore((current) => ({ ...current, tabs: [...current.tabs, tab] }));
-    setTabName('');
-    setAddingTab(false);
-    setActiveTab(tab.id);
-    setCurrentIndex(0);
+    try {
+      const category = await requestMindsetApi('POST', { type: 'category', name });
+      setCategories((current) => [...current, { ...category, tips: [] }]);
+      setTabName('');
+      setAddingTab(false);
+      setActiveTab(category.id);
+      setCurrentIndex(0);
+      setError('');
+    } catch (saveError) {
+      setError(saveError.message);
+    }
   }
 
-  function deleteTab(id) {
+  async function deleteTab(id) {
     if (!window.confirm('Delete this category and all its custom tips?')) return;
-    setStore((current) => ({
-      tabs: current.tabs.filter((tab) => tab.id !== id),
-      tips: current.tips.filter((tip) => tip.tab !== id),
-    }));
-    chooseTab(DEFAULT_TAB.id);
+    try {
+      await requestMindsetApi('DELETE', { type: 'category', id });
+      const remaining = categories.filter((category) => category.id !== id);
+      setCategories(remaining);
+      if (activeTab === id) {
+        const nextCategory = remaining.find((category) => category.isDefault) || remaining[0];
+        setActiveTab(nextCategory?.id || '');
+        setCurrentIndex(0);
+      }
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError.message);
+    }
   }
 
-  function addTip(event) {
+  async function addTip(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const tip = {
-      id: `tip-${Date.now()}`,
-      tab: String(form.get('tab')),
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const values = {
+      categoryId: String(form.get('categoryId')),
       title: String(form.get('title')).trim(),
       icon: String(form.get('icon')).trim() || '💡',
       problem: String(form.get('problem')).trim(),
       why: String(form.get('why')).trim(),
       action: String(form.get('action')).trim(),
     };
-    setStore((current) => ({ ...current, tips: [...current.tips, tip] }));
-    setActiveTab(tip.tab);
-    setCurrentIndex(store.tips.filter((item) => item.tab === tip.tab).length + (tip.tab === DEFAULT_TAB.id ? DEFAULT_TIPS.length : 0));
-    event.currentTarget.reset();
+    try {
+      const tip = await requestMindsetApi('POST', { type: 'tip', ...values });
+      setCategories((current) => current.map((category) => category.id === tip.categoryId
+        ? { ...category, tips: [...category.tips, tip] }
+        : category));
+      setActiveTab(tip.categoryId);
+      setCurrentIndex(activeCategory?.id === tip.categoryId ? tips.length : 0);
+      setError('');
+      formElement.reset();
+    } catch (saveError) {
+      setError(saveError.message);
+    }
   }
 
-  function deleteTip(id) {
+  async function deleteTip(id) {
     if (!window.confirm('Delete this tip?')) return;
-    const nextTips = store.tips.filter((tip) => tip.id !== id);
-    const removedIndex = tips.findIndex((tip) => tip.id === id);
-    const nextIndex = selectedIndex - (removedIndex >= 0 && removedIndex < selectedIndex ? 1 : 0);
-    setStore((current) => ({ ...current, tips: nextTips }));
-    setCurrentIndex(Math.max(0, Math.min(nextIndex, tips.length - 2)));
+    try {
+      await requestMindsetApi('DELETE', { type: 'tip', id });
+      const removedIndex = tips.findIndex((tip) => tip.id === id);
+      const nextIndex = selectedIndex - (removedIndex >= 0 && removedIndex < selectedIndex ? 1 : 0);
+      setCategories((current) => current.map((category) => category.id === activeTab
+        ? { ...category, tips: category.tips.filter((tip) => tip.id !== id) }
+        : category));
+      setCurrentIndex(Math.max(0, Math.min(nextIndex, tips.length - 2)));
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError.message);
+    }
   }
 
   function moveTip(offset) {
@@ -113,13 +176,15 @@ export default function DailyCheck() {
         <button type="button" onClick={() => setCurrentIndex(todayIndex)} className="daily-check-today">Today’s tip</button>
       </header>
 
+      {error && <p role="alert" className="daily-check-empty">{error}</p>}
+
       <nav className="daily-check-tabs" role="tablist" aria-label="Tip categories">
-        {tabs.map((tab) => (
-          <div key={tab.id} className={`daily-check-tab ${activeTab === tab.id ? 'is-active' : ''}`}>
-            <button type="button" role="tab" aria-selected={activeTab === tab.id} onClick={() => chooseTab(tab.id)}>
-              {tab.name}<span className="daily-check-count">{store.tips.filter((tip) => tip.tab === tab.id).length + (tab.id === DEFAULT_TAB.id ? DEFAULT_TIPS.length : 0)}</span>
+        {categories.map((category) => (
+          <div key={category.id} className={`daily-check-tab ${activeTab === category.id ? 'is-active' : ''}`}>
+            <button type="button" role="tab" aria-selected={activeTab === category.id} onClick={() => chooseTab(category.id)}>
+              {category.name}<span className="daily-check-count">{category.tips.length}</span>
             </button>
-            {tab.id !== DEFAULT_TAB.id && <button type="button" title={`Delete ${tab.name}`} aria-label={`Delete ${tab.name}`} onClick={() => deleteTab(tab.id)} className="daily-check-tab-delete"><FiTrash2 size={13} /></button>}
+            {!category.isDefault && <button type="button" title={`Delete ${category.name}`} aria-label={`Delete ${category.name}`} onClick={() => deleteTab(category.id)} className="daily-check-tab-delete"><FiTrash2 size={13} /></button>}
           </div>
         ))}
         {!addingTab ? (
@@ -139,7 +204,7 @@ export default function DailyCheck() {
               <span className="daily-check-emoji" aria-hidden="true">{selectedTip.icon || '💡'}</span>
             </div>
             <div className="daily-check-copy">
-              <span className="daily-check-tag">{tabs.find((tab) => tab.id === activeTab)?.name} · #{selectedIndex + 1}</span>
+              <span className="daily-check-tag">{activeCategory?.name} · #{selectedIndex + 1}</span>
               <h2 className="daily-check-tip-title">{selectedTip.title}</h2>
               <p className="daily-check-paragraph">{markedText(selectedTip.problem)}</p>
               {selectedTip.why && <p className="daily-check-paragraph">{markedText(selectedTip.why)}</p>}
@@ -164,7 +229,7 @@ export default function DailyCheck() {
                     <span className="daily-check-card-title">{tip.title}</span>
                     <span className="daily-check-card-number">Tip #{index + 1}</span>
                   </button>
-                  {!tip.id.startsWith('default-') && <button type="button" onClick={() => deleteTip(tip.id)} title={`Delete ${tip.title}`} aria-label={`Delete ${tip.title}`} className="daily-check-delete"><FiTrash2 size={14} /></button>}
+                  {!tip.isDefault && <button type="button" onClick={() => deleteTip(tip.id)} title={`Delete ${tip.title}`} aria-label={`Delete ${tip.title}`} className="daily-check-delete"><FiTrash2 size={14} /></button>}
                 </article>
               ))}
             </div>
@@ -181,7 +246,7 @@ export default function DailyCheck() {
         <summary>Write a new tip <span aria-hidden="true">+</span></summary>
         <form onSubmit={addTip}>
           <label className="sm:col-span-2">Category
-            <select key={activeTab} name="tab" defaultValue={activeTab} className="field w-full px-3 py-2.5 text-sm text-text">{tabs.map((tab) => <option key={tab.id} value={tab.id}>{tab.name}</option>)}</select>
+            <select key={activeTab} name="categoryId" defaultValue={activeTab} className="field w-full px-3 py-2.5 text-sm text-text">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
           </label>
           <label>Title
             <input name="title" required maxLength={60} placeholder="Protect your focus" className="field w-full px-3 py-2.5 text-sm" />

@@ -1,24 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuArrowUpRight, LuCheck, LuChevronRight, LuClock3, LuSparkles } from 'react-icons/lu';
-import { DEFAULT_ROUTINE_TASKS, formatTime12Hour, routineStorageKeys } from '@/lib/routine-data';
+import { formatTime12Hour } from '@/lib/routine-data';
+import { preferencesUpdatedEvent, readPreferences, writePreferences } from '@/lib/client-preferences';
 
 function localDateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function readStoredValue(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return value ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 const categoryColors = {
@@ -30,35 +23,50 @@ const categoryColors = {
 };
 
 export default function RoutineQuickView({ userId }) {
-  const keys = routineStorageKeys(userId);
-  const [tasks, setTasks] = useState(DEFAULT_ROUTINE_TASKS);
+  const pathname = usePathname();
+  const legacySuffix = encodeURIComponent(userId || 'workspace');
+  const [tasks, setTasks] = useState([]);
   const [done, setDone] = useState({});
   const [autoDone, setAutoDone] = useState({});
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
   const [now, setNow] = useState(() => new Date());
   const todayKey = localDateKey(now);
 
-  const refresh = useCallback(() => {
-    setTasks(readStoredValue(keys.tasks, DEFAULT_ROUTINE_TASKS));
-    setDone(readStoredValue(keys.done, {}));
-    setAutoDone(readStoredValue(keys.autoDone, {}));
-  }, [keys.autoDone, keys.done, keys.tasks]);
+  const refresh = useCallback(async () => {
+    const saved = await readPreferences(['routine-tasks', 'routine-done', 'routine-auto-done'], {
+      'routine-tasks': `xrynex-routine-tasks:${legacySuffix}`,
+      'routine-done': `xrynex-routine-done:${legacySuffix}`,
+      'routine-auto-done': `xrynex-routine-auto-done:${legacySuffix}`,
+    });
+    setTasks(Array.isArray(saved['routine-tasks']) ? saved['routine-tasks'] : []);
+    setDone(saved['routine-done'] || {});
+    setAutoDone(saved['routine-auto-done'] || {});
+    setLoaded(true);
+    setError('');
+  }, [legacySuffix]);
 
   useEffect(() => {
-    refresh();
-    setLoaded(true);
-    const onStorage = (event) => {
-      if ([keys.tasks, keys.done, keys.autoDone].includes(event.key)) refresh();
+    let mounted = true;
+    refresh().catch((loadError) => {
+      if (mounted) {
+        setError(loadError.message);
+        setLoaded(true);
+      }
+    });
+    const onPreferenceUpdate = (event) => {
+      if (event.detail?.some((key) => ['routine-tasks', 'routine-done', 'routine-auto-done'].includes(key))) {
+        refresh().catch((loadError) => setError(loadError.message));
+      }
     };
-    window.addEventListener(keys.updatedEvent, refresh);
-    window.addEventListener('storage', onStorage);
+    window.addEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => {
-      window.removeEventListener(keys.updatedEvent, refresh);
-      window.removeEventListener('storage', onStorage);
+      mounted = false;
+      window.removeEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
       window.clearInterval(timer);
     };
-  }, [keys.autoDone, keys.done, keys.tasks, keys.updatedEvent, refresh]);
+  }, [pathname, refresh]);
 
   const todayTasks = useMemo(() => tasks
     .filter((task) => !task.days?.length || task.days.includes(now.getDay()))
@@ -88,12 +96,12 @@ export default function RoutineQuickView({ userId }) {
       : [...existing, taskId];
     const next = { ...done, [todayKey]: nextDone };
     setDone(next);
-    localStorage.setItem(keys.done, JSON.stringify(next));
-    window.dispatchEvent(new Event(keys.updatedEvent));
+    writePreferences({ 'routine-done': next }).catch((saveError) => setError(saveError.message));
   }
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-[#101c22] via-[#101923] to-[#0e1b19] shadow-[0_16px_46px_rgba(0,0,0,0.2)]" aria-labelledby="dashboard-routine-title">
+      {error && <p role="alert" className="border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-300">{error}</p>}
       <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/[0.07] blur-3xl" />
       <div className="relative flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4 sm:px-6">
         <div className="flex items-center gap-3">
