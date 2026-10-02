@@ -8,6 +8,7 @@ import NewButton from '@/components/NewButton';
 import EconomicNewsCard from '@/components/EconomicNewsCard';
 import TodayTasks from '@/components/TodayTasks';
 import RoutineQuickView from '@/components/RoutineQuickView';
+import MindsetDisciplinePreview from '@/components/MindsetDisciplinePreview';
 import { getSession } from '@/lib/auth';
 import DashboardTabs from '@/components/DashboardTabs';
 
@@ -43,6 +44,7 @@ export default async function Dashboard() {
         </div>
       </header>
 
+      <MindsetDisciplinePreview />
       <RoutineQuickView userId={session?.user.id} />
 
       {/* Row 1 */}
