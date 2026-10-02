@@ -9,6 +9,7 @@ import EconomicNewsCard from '@/components/EconomicNewsCard';
 import TodayTasks from '@/components/TodayTasks';
 import RoutineQuickView from '@/components/RoutineQuickView';
 import { getSession } from '@/lib/auth';
+import DashboardTabs from '@/components/DashboardTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export default async function Dashboard() {
   ]);
 
   return (
+    <DashboardTabs>
     <div className="space-y-4">
       {/* Hero */}
       <header className="panel overflow-hidden bg-gradient-to-r from-[#0e1620] via-[#101b26] to-[#0d1a17] px-4 py-6 sm:px-6 sm:py-7">
@@ -145,6 +147,7 @@ export default async function Dashboard() {
         <span>Progress, not perfection.</span>
       </footer>
     </div>
+    </DashboardTabs>
   );
 }
 

@@ -19,6 +19,21 @@ button, input, textarea, select {
   max-width: 100%;
 }
 
+@keyframes mistake-memory-fade-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mistake-memory-enter {
+  animation: mistake-memory-fade-in 360ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mistake-memory-enter {
+    animation: none;
+  }
+}
+
 html[data-theme='light'] {
   --bg: #edf3f8;
   --panel: #f7f9fc;

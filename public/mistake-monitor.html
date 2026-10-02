@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#05070c">
+<title>Mistake Monitor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body{height:100%;min-height:100%;margin:0;background:#05070c;font-family:Inter,ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+  .glass{background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.015));backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08)}
+  #glow{transition:background 1.2s}
+  .fade{animation:fade .45s ease both}
+  @keyframes fade{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+  @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.35}}
+  .pulse2{animation:pulse2 1.5s infinite}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .ticker{display:flex;width:max-content;animation:scroll 60s linear infinite}
+  #bar{transition:width .1s linear}
+  .row{transition:background .2s,border-color .2s,transform .2s}
+  #log-dialog{width:min(92vw,760px);max-height:90dvh;margin:auto;padding:0;border:1px solid rgba(239,68,68,.4);border-radius:26px;overflow:auto;background:linear-gradient(145deg,#171b23,#0d1118);color:#e2e8f0;box-shadow:0 0 70px rgba(127,29,29,.25)}
+  #log-dialog::backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(8px)}
+  @media (max-width:767px){.ticker{animation-duration:90s}}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body class="text-slate-200">
+<div id="glow" class="fixed inset-0 pointer-events-none"></div>
+<div class="relative h-[100dvh] flex flex-col p-3 sm:p-5 gap-3 sm:gap-4">
+  <header class="flex shrink-0 items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <span class="w-3 h-3 rounded-full bg-red-500 pulse2"></span>
+      <h1 class="text-base sm:text-xl font-bold tracking-[.2em] text-white">MISTAKE MONITOR</h1>
+      <span class="hidden xl:inline text-xs text-slate-500 tracking-widest">· LOOK AT YOURSELF BEFORE THE MARKET</span>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-3">
+      <div class="glass rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-center"><div class="text-[9px] tracking-widest text-slate-500">SESSION</div><div id="sess" class="font-mono text-base sm:text-lg text-amber-400">00:00:00</div></div>
+      <div class="glass rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-center"><div class="text-[9px] tracking-widest text-slate-500">INDIA</div><div id="india-clock" class="font-mono text-base sm:text-lg text-white">--:--:--</div></div>
+      <div class="glass rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-center"><div class="text-[9px] tracking-widest text-slate-500">NEW YORK</div><div id="new-york-clock" class="font-mono text-base sm:text-lg text-white">--:--:--</div></div>
+      <button id="fs" type="button" class="glass rounded-lg px-3 py-2.5 text-xs text-slate-200 transition hover:bg-white/10" title="Fullscreen (F)" aria-label="Toggle fullscreen">⛶</button>
+    </div>
+  </header>
+
+  <section class="glass shrink-0 rounded-xl border border-amber-500/30 bg-[linear-gradient(110deg,rgba(120,74,14,.16),rgba(15,20,27,.94))] px-4 py-3 sm:px-5 sm:py-4" aria-labelledby="review-points-title">
+    <div class="flex items-center gap-2">
+      <span class="text-amber-400" aria-hidden="true">⚠</span>
+      <h2 id="review-points-title" class="text-[10px] sm:text-xs font-extrabold tracking-[.18em] text-amber-400">BEFORE YOU TRADE</h2>
+      <span id="review-points-count" class="ml-auto text-[10px] text-slate-500"></span>
+    </div>
+    <ol id="review-points-list" class="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs sm:text-sm text-slate-200 md:grid-cols-2 xl:grid-cols-3"></ol>
+    <p id="review-points-empty" class="mt-2 hidden text-xs text-slate-400">No pre-trade points saved.</p>
+  </section>
+
+  <main class="flex-1 min-h-0 grid grid-rows-[minmax(0,1fr)_minmax(110px,26dvh)] md:grid-rows-1 md:grid-cols-[minmax(0,1fr)_minmax(230px,300px)] xl:grid-cols-[minmax(0,1fr)_340px] gap-3 sm:gap-4">
+    <section class="glass rounded-2xl sm:rounded-3xl p-4 sm:p-7 xl:p-10 flex flex-col justify-between min-h-0 relative overflow-hidden" aria-label="Mistake spotlight">
+      <div id="spot" class="fade flex-1 flex flex-col justify-center min-h-0 overflow-hidden"></div>
+      <div class="shrink-0 pt-3">
+        <div class="flex items-center justify-between gap-2 text-xs text-slate-500 mb-2">
+          <div id="dots" class="flex gap-1.5" aria-label="Spotlight position"></div>
+          <div class="flex flex-wrap justify-end gap-1.5 sm:gap-2">
+            <button id="prev" type="button" aria-label="Previous mistake" class="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/10">←</button>
+            <button id="pause" type="button" class="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/10">Pause</button>
+            <button id="next" type="button" aria-label="Next mistake" class="px-2.5 py-1.5 rounded bg-white/5 hover:bg-white/10">→</button>
+            <button id="hit" type="button" class="px-2.5 sm:px-3 py-1.5 rounded bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/30" title="I made this mistake (H)">I broke this rule</button>
+          </div>
+        </div>
+        <div class="h-1 rounded bg-white/5 overflow-hidden"><div id="bar" class="h-full bg-amber-400 w-0"></div></div>
+      </div>
+    </section>
+
+    <aside class="glass rounded-2xl sm:rounded-3xl p-3 sm:p-4 flex flex-col min-h-0">
+      <div class="text-[10px] tracking-[.25em] text-slate-500 mb-2 px-1">RANKED BY DAMAGE</div>
+      <div id="list" class="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1"></div>
+      <div id="stats" class="shrink-0 mt-2 pt-2 border-t border-white/5 text-[10px] sm:text-xs text-slate-400 flex justify-between gap-1 px-1"></div>
+    </aside>
+  </main>
+
+  <footer class="glass shrink-0 rounded-xl overflow-hidden py-2">
+    <div id="ticker" class="ticker text-xs sm:text-sm text-amber-300/90 whitespace-nowrap" aria-label="Scrolling prevention rules"></div>
+  </footer>
+</div>
+
+<dialog id="log-dialog" aria-labelledby="log-dialog-title">
+  <section class="p-5 sm:p-8">
+    <p class="text-[10px] sm:text-[11px] font-extrabold tracking-[.24em] text-red-400">⚠ YOU'VE BEEN HERE BEFORE</p>
+    <h2 id="log-dialog-title" class="mt-3 text-3xl sm:text-5xl font-extrabold leading-tight text-white break-words"></h2>
+    <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 sm:gap-x-7">
+      <span id="log-dialog-frequency" class="text-5xl sm:text-6xl font-black"></span>
+      <span class="text-sm sm:text-lg text-slate-400">you've done this</span>
+      <span class="text-sm sm:text-lg text-slate-400">Last time: <strong id="log-dialog-last-time" class="font-medium text-slate-200"></strong></span>
+    </div>
+    <div id="log-dialog-rule-box" class="mt-5 rounded-2xl border p-4 sm:p-6">
+      <div id="log-dialog-rule-label" class="text-[9px] sm:text-[11px] tracking-[.28em]">THE RULE YOU JUST BROKE</div>
+      <div id="log-dialog-rule" class="mt-2 text-xl sm:text-2xl font-bold leading-snug text-white"></div>
+    </div>
+    <section id="log-dialog-recent-section" class="mt-5">
+      <div class="mb-2 text-[9px] sm:text-[10px] font-semibold tracking-[.24em] text-slate-500">RECENT TIMES YOU DID THIS</div>
+      <ul id="log-dialog-recent" class="space-y-1.5"></ul>
+    </section>
+    <div class="mt-6 sm:mt-7 flex flex-wrap justify-end gap-2.5">
+      <button id="log-dialog-cancel" type="button" class="rounded-xl bg-white/[.07] px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[.12]">Cancel</button>
+      <button id="log-dialog-confirm" type="button" class="rounded-xl bg-amber-500 px-5 py-3 text-sm font-extrabold text-[#17140c] transition hover:bg-amber-400">Log it &amp; recommit</button>
+    </div>
+  </section>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  const STORAGE_KEY = 'tradingMistakes.v1';
+  const LEGACY_STORAGE_KEY = 'xrynex-mistake-memory-v1';
+  const REVIEW_POINTS_KEY = 'xrynex-mistake-memory-review-points-v1';
+  const ROTATE_MS = 12000;
+  const RANK = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+  const THEME = {
+    Critical: { color: '#ef4444', badge: 'bg-red-500/20 text-red-300 border-red-500/50', glow: 'rgba(239,68,68,.16)' },
+    High: { color: '#f59e0b', badge: 'bg-amber-500/15 text-amber-300 border-amber-500/40', glow: 'rgba(245,158,11,.12)' },
+    Medium: { color: '#38bdf8', badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30', glow: 'rgba(56,189,248,.09)' },
+    Low: { color: '#64748b', badge: 'bg-slate-500/15 text-slate-300 border-slate-500/30', glow: 'rgba(100,116,139,.08)' },
+  };
+  const byId = (id) => document.getElementById(id);
+  let allMistakes = [];
+  let activeMistakes = [];
+  let reviewPoints = [];
+  let spotlightIndex = 0;
+  let paused = false;
+  let sessionStartedAt = Date.now();
+  let rotationProgress = 0;
+  let pendingOccurrenceId = null;
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[character]);
+  }
+
+  function seedMistakes() {
+    const now = Date.now();
+    const hour = 60 * 60 * 1000;
+    const seed = [
+      ['m1', 'Revenge Trading', 'Impulsive trades right after a loss.', 'Psychology', 'Critical', 8, 1.5, 'After 1 loss, stop trading for 15 minutes.'],
+      ['m2', 'Early Entry', 'Entered before candle close or confirmation.', 'Entry', 'High', 6, 20, 'Wait for a closed confirmation candle.'],
+      ['m3', 'Moving Stop Loss', 'Widened the stop when price went against me.', 'Risk Management', 'Critical', 5, 52, 'Stops only move toward profit, never away.'],
+      ['m4', 'Overtrading', 'Low-quality setups out of boredom.', 'Discipline', 'High', 4, 30, 'Max 3 trades per session.'],
+      ['m5', 'Cutting Winners Early', 'Closed winners out of fear.', 'Exit', 'Medium', 3, 74, 'Hold to the first target unless the thesis breaks.'],
+    ];
+    return seed.map(([id, title, description, category, severity, frequency, hoursAgo, preventionRule]) => {
+      const timestamp = new Date(now - hoursAgo * hour).toISOString();
+      return { id, title, description, category, severity, frequency, lastOccurred: timestamp, preventionRule, active: true, acknowledged: false, createdAt: timestamp, updatedAt: timestamp };
+    });
+  }
+
+  function saveMistakes() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allMistakes));
+    } catch (error) {
+      console.warn('Mistake Monitor could not save local data.', error);
+    }
+  }
+
+  function readStoredMistakes() {
+    try {
+      const current = localStorage.getItem(STORAGE_KEY);
+      const legacy = current === null ? localStorage.getItem(LEGACY_STORAGE_KEY) : null;
+      const stored = current ?? legacy;
+      if (stored !== null) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          allMistakes = parsed;
+          if (current === null) saveMistakes();
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('Mistake Monitor could not read local data; using seed data.', error);
+    }
+    allMistakes = seedMistakes();
+    saveMistakes();
+  }
+
+  function sortMistakes(mistakes) {
+    return [...mistakes].sort((first, second) =>
+      (RANK[second.severity] || 0) - (RANK[first.severity] || 0)
+      || Number(second.frequency || 0) - Number(first.frequency || 0)
+      || new Date(second.lastOccurred).getTime() - new Date(first.lastOccurred).getTime()
+    );
+  }
+
+  function refreshActiveMistakes() {
+    activeMistakes = sortMistakes(allMistakes.filter((mistake) => mistake && mistake.active));
+    if (spotlightIndex >= activeMistakes.length) spotlightIndex = 0;
+  }
+
+  function readReviewPoints() {
+    try {
+      const stored = localStorage.getItem(REVIEW_POINTS_KEY);
+      const parsed = stored ? JSON.parse(stored) : [];
+      reviewPoints = Array.isArray(parsed)
+        ? parsed.filter((point) => point && typeof point.text === 'string' && point.text.trim())
+        : [];
+    } catch (error) {
+      console.warn('Mistake Monitor could not read pre-trade review points.', error);
+      reviewPoints = [];
+    }
+  }
+
+  function renderReviewPoints() {
+    byId('review-points-list').innerHTML = reviewPoints.map((point, index) =>
+      `<li class="flex min-w-0 items-start gap-2"><span class="shrink-0 font-bold text-amber-400">${index + 1}.</span><span class="min-w-0 break-words">${escapeHtml(point.text)}</span></li>`
+    ).join('');
+    byId('review-points-count').textContent = `${reviewPoints.length} ${reviewPoints.length === 1 ? 'point' : 'points'}`;
+    byId('review-points-empty').classList.toggle('hidden', reviewPoints.length > 0);
+  }
+
+  function timeAgo(timestamp) {
+    const elapsedSeconds = (Date.now() - new Date(timestamp).getTime()) / 1000;
+    if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return 'just now';
+    if (elapsedSeconds < 3600) return `${Math.max(1, Math.floor(elapsedSeconds / 60))} min ago`;
+    if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)} h ago`;
+    return `${Math.floor(elapsedSeconds / 86400)} days ago`;
+  }
+
+  function renderSpotlight() {
+    const mistake = activeMistakes[spotlightIndex];
+    const spotlight = byId('spot');
+    if (!mistake) {
+      spotlight.innerHTML = '<div class="text-center text-slate-500 text-xl sm:text-2xl">No active mistakes. Stay sharp.</div>';
+      byId('glow').style.background = '';
+      byId('bar').style.width = '0%';
+      byId('dots').innerHTML = '';
+      renderRankedList();
+      return;
+    }
+    const theme = THEME[mistake.severity] || THEME.Low;
+    byId('glow').style.background = `radial-gradient(900px 500px at 35% 40%,${theme.glow},transparent 70%)`;
+    byId('bar').style.background = theme.color;
+    spotlight.classList.remove('fade');
+    void spotlight.offsetWidth;
+    spotlight.classList.add('fade');
+    spotlight.innerHTML = `
+      <div class="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5 flex-wrap">
+        <span class="text-[10px] sm:text-xs font-bold tracking-widest px-2.5 py-1 rounded border ${theme.badge}">${escapeHtml(mistake.severity).toUpperCase()}</span>
+        <span class="text-[10px] sm:text-xs tracking-widest text-slate-400 uppercase">${escapeHtml(mistake.category)}</span>
+        <span class="text-[10px] sm:text-xs text-slate-500">· #${spotlightIndex + 1} of ${activeMistakes.length}</span>
+      </div>
+      <h2 class="font-extrabold text-white leading-[1.05] tracking-tight break-words" style="font-size:clamp(2rem,5.5vw,5rem)">${escapeHtml(mistake.title)}</h2>
+      <p class="mt-2 sm:mt-4 text-slate-400 text-sm sm:text-lg xl:text-xl max-w-3xl">${escapeHtml(mistake.description)}</p>
+      <div class="mt-4 sm:mt-8 rounded-xl sm:rounded-2xl p-4 sm:p-6 border" style="border-color:${theme.color}66;background:linear-gradient(135deg,${theme.color}1f,transparent)">
+        <div class="text-[9px] sm:text-[11px] tracking-[.3em] mb-1.5 sm:mb-2" style="color:${theme.color}">THE RULE</div>
+        <div class="font-bold text-white leading-snug" style="font-size:clamp(1.1rem,2.8vw,2.4rem)">${escapeHtml(mistake.preventionRule)}</div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex items-center gap-6 sm:gap-8">
+        <div><div class="text-3xl sm:text-4xl font-black" style="color:${theme.color}">${escapeHtml(mistake.frequency)}×</div><div class="text-[9px] sm:text-[10px] tracking-widest text-slate-500">REPEATED</div></div>
+        <div><div class="text-lg sm:text-2xl font-bold text-slate-200 sm:mt-1.5">${escapeHtml(timeAgo(mistake.lastOccurred))}</div><div class="text-[9px] sm:text-[10px] tracking-widest text-slate-500">LAST OCCURRED</div></div>
+      </div>`;
+    byId('dots').innerHTML = activeMistakes.map((_, index) => `<span aria-hidden="true" class="h-1.5 rounded-full transition-all ${index === spotlightIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/20'}"></span>`).join('');
+    renderRankedList();
+  }
+
+  function renderRankedList() {
+    const list = byId('list');
+    list.innerHTML = activeMistakes.map((mistake, index) => {
+      const theme = THEME[mistake.severity] || THEME.Low;
+      const selected = index === spotlightIndex;
+      return `<button type="button" data-index="${index}" aria-current="${selected ? 'true' : 'false'}" class="row w-full text-left rounded-lg sm:rounded-xl p-2 sm:p-3 border ${selected ? 'bg-white/10' : 'bg-white/[.02] hover:bg-white/5'}" style="border-color:${selected ? theme.color : 'rgba(255,255,255,.06)'}">
+        <div class="flex items-center justify-between gap-2"><span class="font-semibold text-xs sm:text-sm text-white truncate">${escapeHtml(mistake.title)}</span><span class="font-black text-xs sm:text-sm shrink-0" style="color:${theme.color}">${escapeHtml(mistake.frequency)}×</span></div>
+        <div class="text-[10px] sm:text-[11px] text-slate-500 mt-0.5">${escapeHtml(mistake.severity)} · ${escapeHtml(mistake.category)}</div></button>`;
+    }).join('');
+    const totalHits = activeMistakes.reduce((sum, mistake) => sum + (Number(mistake.frequency) || 0), 0);
+    const criticalCount = activeMistakes.filter((mistake) => mistake.severity === 'Critical').length;
+    byId('stats').innerHTML = `<span>${activeMistakes.length} active</span><span class="text-red-400">${criticalCount} critical</span><span>${totalHits} total hits</span>`;
+    const rules = activeMistakes.map((mistake) => `⚠ ${escapeHtml(mistake.preventionRule)}`).join('<span class="mx-5 sm:mx-10 text-slate-600">◆</span>');
+    byId('ticker').innerHTML = rules
+      ? `<span class="pr-5 sm:pr-10">${rules}</span><span class="pr-5 sm:pr-10" aria-hidden="true">${rules}</span>`
+      : '<span class="px-4 text-slate-500">No active prevention rules</span>';
+  }
+
+  function render() {
+    refreshActiveMistakes();
+    renderSpotlight();
+  }
+
+  function go(direction) {
+    if (!activeMistakes.length) return;
+    spotlightIndex = (spotlightIndex + direction + activeMistakes.length) % activeMistakes.length;
+    rotationProgress = 0;
+    renderSpotlight();
+  }
+
+  function recordRuleBreak() {
+    const current = activeMistakes[spotlightIndex];
+    if (!current) return;
+    openLogDialog(current.id);
+  }
+
+  function formatRecentTime(timestamp) {
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? 'Unknown time' : date.toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+    });
+  }
+
+  function openLogDialog(id) {
+    const mistake = allMistakes.find((item) => item.id === id && item.active);
+    if (!mistake) return;
+    pendingOccurrenceId = id;
+    const theme = THEME[mistake.severity] || THEME.Critical;
+    const dialog = byId('log-dialog');
+    const recentOccurrences = [...new Set((Array.isArray(mistake.recentOccurrences) && mistake.recentOccurrences.length
+      ? mistake.recentOccurrences
+      : [mistake.lastOccurred].filter(Boolean)))].slice(0, 4);
+    byId('log-dialog-title').textContent = mistake.title || 'Trading mistake';
+    byId('log-dialog-frequency').textContent = `${Number(mistake.frequency) || 0}×`;
+    byId('log-dialog-frequency').style.color = theme.color;
+    byId('log-dialog-last-time').textContent = mistake.lastOccurred ? timeAgo(mistake.lastOccurred) : 'Never';
+    byId('log-dialog-rule').textContent = mistake.preventionRule || 'No prevention rule recorded.';
+    byId('log-dialog-rule-box').style.borderColor = `${theme.color}66`;
+    byId('log-dialog-rule-box').style.background = `linear-gradient(130deg,${theme.color}20,rgba(15,19,26,.25))`;
+    byId('log-dialog-rule-label').style.color = theme.color;
+    byId('log-dialog-recent').innerHTML = recentOccurrences.map((timestamp) => `<li class="rounded-lg border border-white/[.06] bg-white/[.04] px-3 py-2 text-sm text-slate-300">${escapeHtml(formatRecentTime(timestamp))}</li>`).join('');
+    byId('log-dialog-recent-section').classList.toggle('hidden', recentOccurrences.length === 0);
+    dialog.showModal();
+    byId('log-dialog-confirm').focus();
+  }
+
+  function closeLogDialog() {
+    if (byId('log-dialog').open) byId('log-dialog').close();
+    pendingOccurrenceId = null;
+  }
+
+  function confirmRuleBreak() {
+    if (!pendingOccurrenceId) return;
+    const original = allMistakes.find((mistake) => mistake.id === pendingOccurrenceId);
+    if (!original) { closeLogDialog(); return; }
+    const now = new Date().toISOString();
+    original.frequency = (Number(original.frequency) || 0) + 1;
+    const previousLastOccurred = original.lastOccurred;
+    const previousOccurrences = Array.isArray(original.recentOccurrences)
+      ? original.recentOccurrences
+      : [previousLastOccurred].filter(Boolean);
+    original.recentOccurrences = [...new Set([now, ...previousOccurrences])].slice(0, 5);
+    original.lastOccurred = now;
+    original.updatedAt = now;
+    original.acknowledged = false;
+    saveMistakes();
+    const currentId = original.id;
+    closeLogDialog();
+    refreshActiveMistakes();
+    spotlightIndex = Math.max(0, activeMistakes.findIndex((mistake) => mistake.id === currentId));
+    rotationProgress = 0;
+    renderSpotlight();
+  }
+
+  function togglePause() {
+    paused = !paused;
+    byId('pause').textContent = paused ? 'Resume' : 'Pause';
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+  }
+
+  function renderClocksAndRotation() {
+    const pad = (value) => String(value).padStart(2, '0');
+    const seconds = Math.floor((Date.now() - sessionStartedAt) / 1000);
+    byId('sess').textContent = `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`;
+    if (!paused && activeMistakes.length > 1) {
+      rotationProgress += 100;
+      byId('bar').style.width = `${Math.min(100, rotationProgress / ROTATE_MS * 100)}%`;
+      if (rotationProgress >= ROTATE_MS) go(1);
+    }
+  }
+
+  function renderMarketClocks() {
+    const format = (timeZone) => new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }).format(new Date());
+    byId('india-clock').textContent = format('Asia/Kolkata');
+    byId('new-york-clock').textContent = format('America/New_York');
+  }
+
+  byId('next').addEventListener('click', () => go(1));
+  byId('prev').addEventListener('click', () => go(-1));
+  byId('pause').addEventListener('click', togglePause);
+  byId('hit').addEventListener('click', recordRuleBreak);
+  byId('log-dialog-cancel').addEventListener('click', closeLogDialog);
+  byId('log-dialog-confirm').addEventListener('click', confirmRuleBreak);
+  byId('log-dialog').addEventListener('click', (event) => {
+    if (event.target === byId('log-dialog')) closeLogDialog();
+  });
+  byId('log-dialog').addEventListener('cancel', () => { pendingOccurrenceId = null; });
+  byId('fs').addEventListener('click', toggleFullscreen);
+  byId('list').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-index]');
+    if (!button) return;
+    spotlightIndex = Number(button.dataset.index) || 0;
+    rotationProgress = 0;
+    renderSpotlight();
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowRight') go(1);
+    else if (event.key === 'ArrowLeft') go(-1);
+    else if (event.code === 'Space' && !['BUTTON', 'INPUT', 'TEXTAREA'].includes(event.target.tagName)) { event.preventDefault(); togglePause(); }
+    else if (event.key.toLowerCase() === 'f') toggleFullscreen();
+    else if (event.key.toLowerCase() === 'h') recordRuleBreak();
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key === REVIEW_POINTS_KEY) {
+      readReviewPoints();
+      renderReviewPoints();
+      renderRankedList();
+      return;
+    }
+    if (event.key !== STORAGE_KEY && event.key !== LEGACY_STORAGE_KEY) return;
+    readStoredMistakes();
+    render();
+  });
+
+  readStoredMistakes();
+  readReviewPoints();
+  render();
+  renderReviewPoints();
+  renderMarketClocks();
+  window.setInterval(renderMarketClocks, 1000);
+  window.setInterval(renderClocksAndRotation, 100);
+})();
+</script>
+</body>
+</html>
