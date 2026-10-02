@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { createContext, useState } from 'react';
 import MistakeMemory from '@/components/MistakeMemory';
+import DailyCheck from '@/components/DailyCheck';
+
+export const DashboardTabsContext = createContext(null);
 
 export default function DashboardTabs({ children }) {
   const [activeTab, setActiveTab] = useState('main');
 
   return (
+    <DashboardTabsContext.Provider value={{ openMindsetDiscipline: () => setActiveTab('daily-check') }}>
     <div className="space-y-4">
-      <div className="flex gap-1 border-b border-line" role="tablist" aria-label="Dashboard views">
+      <div className="dashboard-tabs" role="tablist" aria-label="Dashboard views">
         <button
           id="main-dashboard-tab"
           type="button"
@@ -16,7 +20,7 @@ export default function DashboardTabs({ children }) {
           aria-selected={activeTab === 'main'}
           aria-controls="main-dashboard-panel"
           onClick={() => setActiveTab('main')}
-          className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'main' ? 'border-gold text-white' : 'border-transparent text-muted hover:text-text'}`}
+          className={`dashboard-tab ${activeTab === 'main' ? 'is-active' : ''}`}
         >
           Main Dashboard
         </button>
@@ -27,9 +31,20 @@ export default function DashboardTabs({ children }) {
           aria-selected={activeTab === 'mistakes'}
           aria-controls="mistakes-panel"
           onClick={() => setActiveTab('mistakes')}
-          className={`border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'mistakes' ? 'border-gold text-white' : 'border-transparent text-muted hover:text-text'}`}
+          className={`dashboard-tab ${activeTab === 'mistakes' ? 'is-active' : ''}`}
         >
           Trading Mistakes
+        </button>
+        <button
+          id="daily-check-tab"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'daily-check'}
+          aria-controls="daily-check-panel"
+          onClick={() => setActiveTab('daily-check')}
+          className={`dashboard-tab ${activeTab === 'daily-check' ? 'is-active' : ''}`}
+        >
+          Mindset &amp; Discipline
         </button>
       </div>
       <section id="mistakes-panel" role="tabpanel" aria-labelledby="mistakes-tab" hidden={activeTab !== 'mistakes'}>
@@ -38,6 +53,10 @@ export default function DashboardTabs({ children }) {
       <section id="main-dashboard-panel" role="tabpanel" aria-labelledby="main-dashboard-tab" hidden={activeTab !== 'main'}>
         {children}
       </section>
+      <section id="daily-check-panel" role="tabpanel" aria-labelledby="daily-check-tab" hidden={activeTab !== 'daily-check'}>
+        <DailyCheck />
+      </section>
     </div>
+    </DashboardTabsContext.Provider>
   );
 }
