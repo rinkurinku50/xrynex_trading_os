@@ -523,6 +523,36 @@ html[data-theme='dark'] {
   gap: 0.8rem;
 }
 
+.routine-card-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+.routine-duplicate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mute);
+}
+
+.routine-duplicate-button:hover {
+  border-color: var(--line);
+  background: rgba(255,255,255,0.04);
+  color: var(--ink);
+}
+
+.routine-duplicate-button:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
 .routine-card.is-done {
   opacity: 0.85;
 }
@@ -745,7 +775,7 @@ html[data-theme='dark'] {
     overflow-wrap: anywhere;
   }
 
-  .routine-edit-link {
+  .routine-card-actions {
     margin-left: auto;
   }
 

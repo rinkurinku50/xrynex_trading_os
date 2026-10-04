@@ -187,11 +187,12 @@ export async function POST(request) {
       if (!mistake) return null;
       const now = new Date();
       await tx.tradingMistakeOccurrence.create({ data: { mistakeId: mistake.id, ownerId: user.id, occurredAt: now } });
-      return tx.tradingMistake.update({
+      const updated = await tx.tradingMistake.update({
         where,
         data: { frequency: { increment: 1 }, lastOccurred: now, acknowledgedAt: null },
         include: { occurrences: { orderBy: { occurredAt: 'desc' }, take: 5 } },
       });
+      return updated;
     });
     return updated ? response(normalizeMistake(updated)) : response({ error: 'Mistake not found.' }, 404);
   }

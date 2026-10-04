@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { LuCopy } from 'react-icons/lu';
+import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
 import { formatTime12Hour } from '@/lib/routine-data';
 import { readPreferences, writePreferences } from '@/lib/client-preferences';
 
@@ -247,7 +249,7 @@ function AppearanceSettings({ accent, theme, colorPalette, onAccentChange, onThe
   );
 }
 
-function RoutineList({ tasks, categories, selectedDate, categoryId, done, now, onToggleDone, onOpenEditDialog }) {
+function RoutineList({ tasks, categories, selectedDate, categoryId, done, now, onToggleDone, onDuplicate, onOpenEditDialog }) {
   const groups = [
     { key: 'morning', label: 'Morning', start: 0, end: 12 },
     { key: 'afternoon', label: 'Afternoon', start: 12, end: 17 },
@@ -307,9 +309,20 @@ function RoutineList({ tasks, categories, selectedDate, categoryId, done, now, o
                     </div>
                   </div>
 
-                  <button type="button" className="routine-edit-link" onClick={() => onOpenEditDialog(task)}>
-                    Edit
-                  </button>
+                  <div className="routine-card-actions">
+                    <button
+                      type="button"
+                      className="routine-duplicate-button"
+                      onClick={() => onDuplicate(task)}
+                      aria-label={`Duplicate ${task.title}`}
+                      title="Duplicate routine"
+                    >
+                      <LuCopy aria-hidden="true" />
+                    </button>
+                    <button type="button" className="routine-edit-link" onClick={() => onOpenEditDialog(task)}>
+                      Edit
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -427,6 +440,7 @@ function RoutineDialog({ dialogRef, mode, draft, setDraft, onClose, onSave, onDe
 }
 
 export default function DailyRoutinePlanner({ userId }) {
+  const confirm = useConfirmDialog();
   const legacySuffix = encodeURIComponent(userId || 'workspace');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [tasks, setTasks] = useState([]);
@@ -450,6 +464,7 @@ export default function DailyRoutinePlanner({ userId }) {
   });
   const dialogRef = useRef(null);
   const nameInputRef = useRef(null);
+  const duplicateGuardRef = useRef(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -470,10 +485,9 @@ export default function DailyRoutinePlanner({ userId }) {
       if (Array.isArray(saved['routine-categories']) && saved['routine-categories'].length) setCategories(saved['routine-categories']);
       if (typeof saved['routine-accent'] === 'string') setAccent(saved['routine-accent']);
       if (typeof saved['routine-theme'] === 'string') setTheme(saved['routine-theme']);
+      setRoutineDataLoaded(true);
     }).catch((error) => {
       if (mounted) setPreferenceError(error.message);
-    }).finally(() => {
-      if (mounted) setRoutineDataLoaded(true);
     });
     return () => { mounted = false; };
   }, [legacySuffix]);
@@ -638,6 +652,29 @@ export default function DailyRoutinePlanner({ userId }) {
     closeDialog();
   };
 
+  const duplicateRoutine = async (task) => {
+    if (duplicateGuardRef.current.has(task.id)) return;
+    duplicateGuardRef.current.add(task.id);
+    try {
+      const accepted = await confirm({
+        title: 'Duplicate routine?',
+        message: `Create a copy of “${task.title}” with the same schedule and category? The copy will start unchecked.`,
+        confirmLabel: 'Duplicate',
+        tone: 'default',
+      });
+      if (!accepted) return;
+      const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setTasks((current) => [...current, {
+        ...task,
+        id,
+        title: `${task.title} (copy)`,
+        days: Array.isArray(task.days) ? [...task.days] : [],
+      }]);
+    } finally {
+      window.setTimeout(() => duplicateGuardRef.current.delete(task.id), 400);
+    }
+  };
+
   const onAddCategory = (newCategory) => {
     const categoryId = newCategory.id || `custom-${Date.now()}`;
     setCategories((current) => {
@@ -695,6 +732,7 @@ export default function DailyRoutinePlanner({ userId }) {
             done={done}
             now={now}
             onToggleDone={toggleDone}
+            onDuplicate={duplicateRoutine}
             onOpenEditDialog={openEditDialog}
           />
         </main>

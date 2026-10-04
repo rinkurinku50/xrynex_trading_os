@@ -19,8 +19,9 @@ const ownerModels = [
   ['driveFolder', 'driveFolders'],
   ['economicCalendarScreenshot', 'calendarScreenshots'],
   ['economicNews', 'economicNews'],
+  ['dailyRoutine', 'dailyRoutines'],
 ];
-const singletonModels = new Set(['focus', 'economicCalendarScreenshot']);
+const singletonModels = new Set(['focus', 'economicCalendarScreenshot', 'dailyRoutine']);
 
 class MigrationPlanError extends Error {}
 

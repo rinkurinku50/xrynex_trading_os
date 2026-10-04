@@ -162,6 +162,7 @@ model User {
   mindsetCategories     MindsetCategory[]
   mindsetTips           MindsetTip[]
   preferences           UserPreference[]
+  dailyRoutine          DailyRoutine?
 
   @@map("users")
 }
@@ -352,4 +353,20 @@ model UserPreference {
 
   @@unique([ownerId, key])
   @@map("user_preferences")
+}
+
+model DailyRoutine {
+  id         String   @id @default(cuid())
+  ownerId    String   @unique @map("owner_id")
+  tasks      String
+  done       String
+  autoDone   String   @map("auto_done")
+  categories String
+  accent     String
+  theme      String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("daily_routines")
 }

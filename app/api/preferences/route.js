@@ -17,10 +17,73 @@ const allowedKeys = new Set([
   'trading-plan-checklist',
   'economic-news-order',
 ]);
+const routinePreferenceKeys = [
+  'routine-tasks',
+  'routine-done',
+  'routine-auto-done',
+  'routine-categories',
+  'routine-accent',
+  'routine-theme',
+];
+const routineKeySet = new Set(routinePreferenceKeys);
+const routineColumns = {
+  'routine-tasks': 'tasks',
+  'routine-done': 'done',
+  'routine-auto-done': 'autoDone',
+  'routine-categories': 'categories',
+  'routine-accent': 'accent',
+  'routine-theme': 'theme',
+};
+const routineDefaults = Object.fromEntries(routinePreferenceKeys.map((key) => [key, DEFAULT_USER_PREFERENCES[key]]));
 const noStore = { 'Cache-Control': 'no-store, max-age=0' };
 
 function response(data, status = 200) {
   return NextResponse.json(data, { status, headers: noStore });
+}
+
+function serializeRoutineData(values) {
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [routineColumns[key], JSON.stringify(value)]));
+}
+
+function parseRoutineData(row) {
+  const values = {};
+  for (const key of routinePreferenceKeys) {
+    try {
+      values[key] = JSON.parse(row[routineColumns[key]]);
+    } catch {
+      throw new Error(`Saved preference ${key} is invalid.`);
+    }
+  }
+  return values;
+}
+
+async function readRoutineData(ownerId) {
+  const existing = await prisma.dailyRoutine.findUnique({ where: { ownerId } });
+  if (existing) return { values: parseRoutineData(existing), availableKeys: routinePreferenceKeys };
+
+  const legacyRows = await prisma.userPreference.findMany({
+    where: { ownerId, key: { in: routinePreferenceKeys } },
+  });
+  if (!legacyRows.length) return { values: null, availableKeys: [] };
+
+  const values = { ...routineDefaults };
+  for (const row of legacyRows) {
+    try {
+      values[row.key] = JSON.parse(row.value);
+    } catch {
+      throw new Error(`Saved preference ${row.key} is invalid.`);
+    }
+  }
+
+  let migrated;
+  try {
+    migrated = await prisma.dailyRoutine.create({ data: { ownerId, ...serializeRoutineData(values) } });
+  } catch (error) {
+    if (error.code !== 'P2002') throw error;
+    migrated = await prisma.dailyRoutine.findUnique({ where: { ownerId } });
+  }
+  if (!migrated) throw new Error('Could not migrate saved daily routines.');
+  return { values: parseRoutineData(migrated), availableKeys: legacyRows.map((row) => row.key) };
 }
 
 export async function GET(request) {
@@ -33,15 +96,23 @@ export async function GET(request) {
     return response({ error: 'Choose valid preference keys.' }, 400);
   }
 
-  const rows = await prisma.userPreference.findMany({
-    where: { ownerId: user.id, key: { in: keys } },
-  });
+  const requestedRoutineKeys = keys.filter((key) => routineKeySet.has(key));
+  const preferenceKeys = keys.filter((key) => !routineKeySet.has(key));
+  const rows = preferenceKeys.length
+    ? await prisma.userPreference.findMany({ where: { ownerId: user.id, key: { in: preferenceKeys } } })
+    : [];
   const values = {};
   for (const row of rows) {
     try {
       values[row.key] = JSON.parse(row.value);
     } catch {
       return response({ error: `Saved preference ${row.key} is invalid.` }, 500);
+    }
+  }
+  if (requestedRoutineKeys.length) {
+    const routineData = await readRoutineData(user.id);
+    for (const key of requestedRoutineKeys) {
+      if (routineData.availableKeys.includes(key)) values[key] = routineData.values[key];
     }
   }
   return response({ values });
@@ -67,6 +138,7 @@ export async function PUT(request) {
   }
 
   const records = [];
+  const routineValues = {};
   for (const [key, value] of entries) {
     if (key === 'reminder-settings' && (!value || typeof value !== 'object' || Array.isArray(value))) {
       return response({ error: 'Reminder settings must be an object.' }, 400);
@@ -83,16 +155,27 @@ export async function PUT(request) {
     if (serialized === undefined || serialized.length > 200_000) {
       return response({ error: `Preference ${key} is empty or too large.` }, 400);
     }
-    records.push({ key, value: serialized });
+    if (routineKeySet.has(key)) routineValues[key] = normalizedValue;
+    else records.push({ key, value: serialized });
   }
 
-  await prisma.$transaction(records.map(({ key, value }) => prisma.userPreference.upsert({
+  const currentRoutine = Object.keys(routineValues).length ? await readRoutineData(user.id) : null;
+  const operations = records.map(({ key, value }) => prisma.userPreference.upsert({
     where: { ownerId_key: { ownerId: user.id, key } },
     create: { ownerId: user.id, key, value },
     update: { value },
-  })));
+  }));
+  if (currentRoutine) {
+    const createValues = { ...(currentRoutine.values || routineDefaults), ...routineValues };
+    operations.push(prisma.dailyRoutine.upsert({
+      where: { ownerId: user.id },
+      create: { ownerId: user.id, ...serializeRoutineData(createValues) },
+      update: serializeRoutineData(routineValues),
+    }));
+  }
+  if (operations.length) await prisma.$transaction(operations);
 
-  return response({ saved: records.map(({ key }) => key) });
+  return response({ saved: entries.map(([key]) => key) });
 }
 
 export async function POST(request) {
@@ -110,11 +193,24 @@ export async function POST(request) {
     return response({ error: 'Choose valid default preferences to initialize.' }, 400);
   }
 
-  await prisma.$transaction(keys.map((key) => prisma.userPreference.upsert({
+  const routineKeys = keys.filter((key) => routineKeySet.has(key));
+  const preferenceKeys = keys.filter((key) => !routineKeySet.has(key));
+  const operations = preferenceKeys.map((key) => prisma.userPreference.upsert({
     where: { ownerId_key: { ownerId: user.id, key } },
     create: { ownerId: user.id, key, value: JSON.stringify(DEFAULT_USER_PREFERENCES[key]) },
     update: {},
-  })));
+  }));
+  if (routineKeys.length) {
+    const current = await readRoutineData(user.id);
+    if (!current.values) {
+      operations.push(prisma.dailyRoutine.upsert({
+        where: { ownerId: user.id },
+        create: { ownerId: user.id, ...serializeRoutineData(routineDefaults) },
+        update: {},
+      }));
+    }
+  }
+  if (operations.length) await prisma.$transaction(operations);
 
   return response({ initialized: keys });
 }

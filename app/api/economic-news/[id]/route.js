@@ -25,7 +25,8 @@ export async function PATCH(request, { params }) {
     if (!Number.isInteger(id) || !title || !priorities.has(priority) || (eventAt && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(eventAt))) {
       return NextResponse.json({ error: 'Enter a valid news name, priority, and New York date/time.' }, { status: 400 });
     }
-    const row = await prisma.economicNews.updateMany({ where: { id, ownerId: user.id }, data: { title, priority, eventAt: eventAt || null } });
+    const data = { title, priority, eventAt: eventAt || null };
+    const row = await prisma.economicNews.updateMany({ where: { id, ownerId: user.id }, data });
     if (!row.count) return NextResponse.json({ error: 'News item not found.' }, { status: 404 });
     const updated = await prisma.economicNews.findFirst({ where: { id, ownerId: user.id } });
     return NextResponse.json({ ...updated, event_at: updated.eventAt, created_at: updated.createdAt });

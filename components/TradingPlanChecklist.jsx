@@ -44,10 +44,9 @@ export default function TradingPlanChecklist() {
       }
       if (saved?.sessions) setSessions(saved.sessions);
       if (Array.isArray(saved?.requirements) && saved.requirements.length) setRequirements([...new Set(saved.requirements)]);
+      setHydrated(true);
     }).catch((error) => {
       if (mounted) setPreferenceError(error.message);
-    }).finally(() => {
-      if (mounted) setHydrated(true);
     });
     return () => { mounted = false; };
   }, []);

@@ -41,6 +41,7 @@ const models = [
   'tradingMistakeOccurrence',
   'mindsetTip',
   'userPreference',
+  'dailyRoutine',
 ];
 
 const tableNames = {
@@ -68,6 +69,7 @@ const tableNames = {
   tradingMistakeOccurrence: 'trading_mistake_occurrences',
   mindsetTip: 'mindset_tips',
   userPreference: 'user_preferences',
+  dailyRoutine: 'daily_routines',
 };
 
 const deleteOrder = [
@@ -78,6 +80,7 @@ const deleteOrder = [
   'mistakeMemoryState',
   'mistakeReviewPoint',
   'userPreference',
+  'dailyRoutine',
   'authSession',
   'ssoLoginCode',
   'ssoAssertionUse',

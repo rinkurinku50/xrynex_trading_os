@@ -28,6 +28,7 @@ Every file in the project and what it does. Start at `README.md` for setup, or o
 | File | Purpose |
 | --- | --- |
 | `schema.prisma` | Prisma schema for all app tables and the PostgreSQL datasource |
+| `schema.sqlite.prisma` | Prisma schema for the local SQLite database, including `daily_routines` |
 
 ## `scripts/`
 
@@ -55,6 +56,7 @@ Each collection route handles `GET` (list) and `POST` (create); each `[id]` rout
 | `/api/videos` | `app/api/videos/route.js`, `app/api/videos/[id]/route.js` |
 | `/api/charts` | `app/api/charts/route.js`, `app/api/charts/[id]/route.js` (validates the Drive link) |
 | `/api/tasks` | `app/api/tasks/route.js`, `app/api/tasks/[id]/route.js` |
+| `/api/preferences` | `app/api/preferences/route.js` — stores per-user preferences and migrates routine state to `daily_routines` |
 | `/api/concepts` | `app/api/concepts/route.js` — list and create concepts |
 | `/api/concepts/:id` | `app/api/concepts/[id]/route.js` — edit and delete concepts |
 | `/api/focus` | `app/api/focus/route.js` — the Current Focus card, `GET` and `PATCH` |

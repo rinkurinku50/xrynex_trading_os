@@ -35,6 +35,7 @@ const modelNames = [
   'tradingMistakeOccurrence',
   'mindsetTip',
   'userPreference',
+  'dailyRoutine',
 ];
 
 try {
