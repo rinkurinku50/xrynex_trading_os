@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import SectionHeader from '@/components/SectionHeader';
 import TradingPlanChecklist from '@/components/TradingPlanChecklist';
 import TradingPlanConfiguredSection from '@/components/TradingPlanConfiguredSection';
+import TradingPlanLayoutSync from '@/components/TradingPlanLayoutSync';
 import { DEFAULT_TRADING_PLAN_LAYOUT } from '@/lib/workspace-defaults';
 import { LuMaximize2, LuSettings } from 'react-icons/lu';
 
@@ -26,14 +27,9 @@ export default async function TradingPlanPage() {
       layout = DEFAULT_TRADING_PLAN_LAYOUT;
     }
   }
-  const visibleSections = layout.sections.filter((section) => section.enabled !== false && (
-    section.type !== 'checklist'
-    || !(section.subsections || []).length
-    || section.subsections.some((subsection) => subsection.enabled !== false)
-  ));
-
   return (
     <div className="space-y-4">
+      <TradingPlanLayoutSync />
       <SectionHeader
         eyebrow="Stay aware"
         title="Trading plan"
@@ -41,10 +37,9 @@ export default async function TradingPlanPage() {
         description="Keep the week’s major events visible before you make decisions in the market."
         action={<div className="flex flex-wrap gap-2"><a href="/trading-plan-builder.html" target="_blank" rel="noopener noreferrer" className="btn"><LuSettings className="h-4 w-4" aria-hidden="true" /><span>Customize layout</span></a><a href="/trading-plan-monitor.html" target="_blank" rel="noopener noreferrer" className="btn btn-primary"><LuMaximize2 className="h-4 w-4" aria-hidden="true" /><span>Open monitor</span></a></div>}
       />
-      {visibleSections.map((section) => {
+      {layout.sections.map((section) => {
         if (section.type === 'checklist') {
-          const hiddenGroupIds = (section.subsections || []).filter((subsection) => subsection.enabled === false).map((subsection) => subsection.id);
-          return <TradingPlanChecklist key={section.id} title={section.title} hiddenGroupIds={hiddenGroupIds} />;
+          return <TradingPlanChecklist key={section.id} title={section.title} />;
         }
         if (section.type === 'scheduler') return <EconomicNewsCard key={section.id} sectionTitle={section.title} initialNews={news} />;
         if (section.type === 'weekly-calendar') {
@@ -60,7 +55,7 @@ export default async function TradingPlanPage() {
         }
         return <TradingPlanConfiguredSection key={section.id} section={section} />;
       })}
-      {!visibleSections.length && <div className="panel px-5 py-8 text-center text-sm text-muted">All Trading Plan sections are hidden. Use Customize layout to show a section.</div>}
+      {!layout.sections.length && <div className="panel px-5 py-8 text-center text-sm text-muted">No Trading Plan sections are configured.</div>}
     </div>
   );
 }
