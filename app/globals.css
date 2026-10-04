@@ -8,6 +8,8 @@
 }
 
 body {
+  min-height: 100dvh;
+  overflow-x: clip;
   background:
     radial-gradient(900px 500px at 78% -8%, rgba(34, 197, 94, 0.07), transparent 60%),
     #0a0e13;
@@ -17,6 +19,45 @@ body {
 
 button, input, textarea, select {
   max-width: 100%;
+}
+
+img, video, iframe, svg {
+  max-width: 100%;
+}
+
+.truncate {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+[class*="line-clamp-"] {
+  display: block;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: initial;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+.responsive-truncated-text-tooltip {
+  position: fixed;
+  z-index: 120;
+  max-width: min(360px, calc(100vw - 24px));
+  max-height: 40dvh;
+  overflow: auto;
+  border: 1px solid #40515f;
+  border-radius: 8px;
+  background: #101b26;
+  padding: 0.55rem 0.7rem;
+  color: #edf7ff;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
 }
 
 @keyframes mistake-memory-fade-in {
@@ -542,9 +583,10 @@ html[data-theme='dark'] {
 .routine-task-meta {
   color: var(--mute);
   font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.daily-task-controls {
+  display: contents;
 }
 
 .routine-edit-link {
@@ -660,7 +702,7 @@ html[data-theme='dark'] {
 
 @media (max-width: 860px) {
   .routine-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
     padding-top: 0.2rem;
   }
@@ -680,12 +722,54 @@ html[data-theme='dark'] {
 }
 
 @media (max-width: 639px) {
+  .routine-main-panel,
+  .routine-list-root,
+  .routine-group {
+    min-width: 0;
+  }
+
+  .routine-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .routine-card-main {
+    min-width: 0;
+  }
+
+  .routine-task-copy {
+    flex: 1 1 0;
+  }
+
+  .routine-task-title {
+    overflow-wrap: anywhere;
+  }
+
+  .routine-edit-link {
+    margin-left: auto;
+  }
+
   .routine-main-panel {
     padding: 0.8rem;
   }
 
+  .routine-main-controls {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .routine-main-controls .routine-segment {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-right: 0.2rem;
+    padding-left: 0.2rem;
+    font-size: 0.8rem;
+  }
+
   .routine-time {
     width: 3.9rem;
+    flex: 0 0 3.9rem;
   }
 
   .routine-card {
@@ -694,6 +778,36 @@ html[data-theme='dark'] {
 
   .routine-dialog-inner {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .routine-task-title,
+  .daily-task-title,
+  .daily-task-meta {
+    overflow-wrap: anywhere;
+  }
+
+  .daily-task-row {
+    align-items: flex-start;
+  }
+
+  .daily-task-check {
+    margin-top: 0.2rem;
+  }
+
+  .daily-task-copy {
+    flex: 1 1 calc(100% - 2rem);
+  }
+
+  .daily-task-controls {
+    display: flex;
+    flex: 1 1 calc(100% - 1.75rem);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    margin-left: 1.75rem;
   }
 }
 

@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Panel } from '@/components/ui';
 import { driveImage } from '@/lib/drive';
 import EconomicNewsCard from '@/components/EconomicNewsCard';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
+import { LuDownload, LuMaximize2, LuRotateCcw, LuX, LuZoomIn, LuZoomOut } from 'react-icons/lu';
+import { driveId } from '@/lib/drive';
 
 function weekLabel() {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -31,10 +33,37 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const [overlayOpacity, setOverlayOpacity] = useState(initialOpacity);
   const [newYorkTime, setNewYorkTime] = useState('');
+  const imageTriggerRef = useRef(null);
+  const closeImageButtonRef = useRef(null);
   const titleId = useId();
   const imageSrc = driveImage(imageUrl, 'w1600') || imageUrl;
+  const imageDriveId = driveId(imageUrl);
+  const downloadUrl = imageDriveId
+    ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(imageDriveId)}`
+    : imageSrc;
+  const downloadName = `economic-calendar-${weekLabel().replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`;
+
+  useEffect(() => {
+    if (!imageOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setImageOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    closeImageButtonRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+      imageTriggerRef.current?.focus();
+    };
+  }, [imageOpen]);
 
   useEffect(() => {
     const updateTime = () => setNewYorkTime(new Date().toLocaleTimeString('en-US', {
@@ -90,6 +119,38 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
   async function save(event) {
     event.preventDefault();
     await saveUrl(draftUrl);
+  }
+
+  async function downloadImage() {
+    setDownloadError('');
+    if (imageDriveId) {
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.click();
+      return;
+    }
+
+    setDownloadBusy(true);
+    try {
+      const response = await fetch(downloadUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error('The image source rejected the download.');
+      const imageBlob = await response.blob();
+      const extension = imageBlob.type === 'image/jpeg' ? 'jpg' : imageBlob.type.split('/')[1] || 'png';
+      const objectUrl = URL.createObjectURL(imageBlob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${downloadName.replace(/\.png$/, '')}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    } catch {
+      setDownloadError('This image source blocks direct downloads. Open the image to save it.');
+    } finally {
+      setDownloadBusy(false);
+    }
   }
 
   return (
@@ -167,20 +228,111 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
           ) : (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={imageSrc}
-                src={imageSrc}
-                alt={`Economic calendar for the week of ${weekLabel()}`}
-                className="max-h-[680px] w-full object-contain"
-                onError={() => setImageFailed(true)}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: overlayOpacity / 100 }} aria-hidden="true" />
+              <button
+                ref={imageTriggerRef}
+                type="button"
+                className="group relative block w-full cursor-zoom-in border-0 bg-ink p-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-win"
+                onClick={() => { setImageZoom(1); setImageOpen(true); }}
+                aria-label="View economic calendar image full size"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={imageSrc}
+                  src={imageSrc}
+                  alt={`Economic calendar for the week of ${weekLabel()}`}
+                  className="max-h-[680px] w-full object-contain"
+                  onError={() => setImageFailed(true)}
+                />
+                <div className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: overlayOpacity / 100 }} aria-hidden="true" />
+                <span className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/25 bg-black/75 text-white" aria-hidden="true">
+                  <LuMaximize2 className="h-5 w-5" />
+                </span>
+              </button>
             </>
           )}
         </div>
       ) : (
         <div className="mt-4 flex min-h-36 items-center justify-center rounded-lg border border-dashed border-line bg-ink px-4 text-center text-[13px] text-muted">
           Add this week’s calendar screenshot to see it here.
+        </div>
+      )}
+      {imageOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-3 sm:p-6"
+          onClick={(event) => { if (event.target === event.currentTarget) setImageOpen(false); }}
+        >
+          <div role="dialog" aria-modal="true" aria-label="Economic calendar image" className="flex h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-line bg-black sm:h-[calc(100dvh-3rem)] sm:max-h-[calc(100dvh-3rem)]">
+            <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2 sm:flex-nowrap sm:px-4">
+              <span className="min-w-0 flex-1 basis-full truncate text-[13px] font-medium text-text sm:basis-auto">Economic calendar · {weekLabel()}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-text hover:bg-panel2 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setImageZoom((current) => Math.max(0.5, +(current - 0.25).toFixed(2)))}
+                  disabled={imageZoom <= 0.5}
+                  aria-label="Zoom out"
+                  title="Zoom out"
+                >
+                  <LuZoomOut className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <span className="w-12 text-center font-mono text-[11px] tabular-nums text-muted">{Math.round(imageZoom * 100)}%</span>
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-text hover:bg-panel2 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setImageZoom((current) => Math.min(3, +(current + 0.25).toFixed(2)))}
+                  disabled={imageZoom >= 3}
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                >
+                  <LuZoomIn className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-line text-text hover:bg-panel2"
+                  onClick={() => setImageZoom(1)}
+                  aria-label="Reset zoom"
+                  title="Reset zoom"
+                >
+                  <LuRotateCcw className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadImage}
+                  disabled={downloadBusy}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-line px-3 text-[12px] font-medium text-text hover:bg-panel2 disabled:opacity-50"
+                  aria-label="Download calendar image"
+                  title="Download calendar image"
+                >
+                  <LuDownload className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">{downloadBusy ? 'Downloading' : 'Download'}</span>
+                </button>
+              </div>
+              <button
+                ref={closeImageButtonRef}
+                type="button"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line text-text hover:bg-panel2"
+                onClick={() => setImageOpen(false)}
+                aria-label="Close calendar image"
+              >
+                <LuX className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </header>
+            {downloadError && (
+              <p role="alert" className="shrink-0 border-b border-loss/30 bg-loss/10 px-4 py-2 text-[12px] text-loss">
+                {downloadError}{' '}
+                <a href={imageSrc} target="_blank" rel="noreferrer" className="underline">Open image</a>
+              </p>
+            )}
+            <div className="min-h-0 flex-1 overflow-auto bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageSrc}
+                alt={`Economic calendar for the week of ${weekLabel()}`}
+                className="mx-auto block h-auto"
+                style={{ width: `${imageZoom * 100}%`, maxWidth: 'none' }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </Panel>

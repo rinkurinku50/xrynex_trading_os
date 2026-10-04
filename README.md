@@ -13,6 +13,10 @@ npm run db:migrate:sqlite
 npm run dev                    # http://localhost:3000
 ```
 
+### Install as an app
+
+On a secure HTTPS deployment (or `localhost`), install Xrynex Trading OS from the browser’s install menu or add-to-home-screen action. The service worker caches versioned app assets and a public offline screen only. Workspace pages and API responses are never cached, so saved trading data is not available offline. Push notifications are not configured.
+
 Local development uses `SQLITE_DATABASE_URL`; keep `DATABASE_URL` for PostgreSQL source migration and hosted production. The migration preserves the source database and refuses to copy into a non-empty SQLite destination. Local database and generated-client files are ignored by Git.
 
 The demo seed can be run more than once. It only inserts missing examples and never clears existing records. Demo chart cards use a bundled illustration; demo Drive folders point to Drive’s My Drive page until you replace them with your own folder links.

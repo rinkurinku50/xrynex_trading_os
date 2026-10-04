@@ -14,6 +14,7 @@ const tutorialSections = [
     intro: 'Use the dashboard as your starting point: it gathers your daily checklist and recent workspace records.',
     steps: [
       { title: 'Make a short checklist', body: 'The Today card shows tasks scheduled for today. Unfinished tasks move into Pending after their due date; use Move to today to bring one back onto today’s list. Daily Tasks also lets you set priority, move today’s tasks to tomorrow, remove tasks, and browse history.' },
+      { title: 'Review your daily routine', body: 'Open Daily Routine to browse the week, select a day or category, mark routines complete, and add or edit scheduled routines. Adjust the accent color and theme in Appearance settings.' },
       { title: 'Use Quick actions to capture work', body: 'Choose New idea, Video note, Add chart, or New strategy. Complete the form and save; the new record will appear in its section and dashboard preview.' },
       { title: 'Open the full section', body: 'Use a View all link or the left navigation to move from a preview to the full list. The sidebar search filters navigation labels as you type.' },
     ],
@@ -58,6 +59,7 @@ const tutorialSections = [
     intro: 'Keep the current week’s economic calendar screenshot beside your preparation workflow.',
     steps: [
       { title: 'Add this week’s calendar', body: 'Open Trading Plan and paste a publicly viewable Google Drive image link or direct image URL, then select Save link. The image is stored for your account.' },
+      { title: 'View and download the calendar', body: 'Select the calendar image to open a full-brightness popup. Use Zoom in, Zoom out, or Reset zoom to inspect details, and select Download to save the image. Press Escape or select outside the image to close the popup.' },
       { title: 'Replace or remove it', body: 'Save a new URL to replace the current screenshot. Select Remove when you want to clear it and return to the empty state.' },
       { title: 'Plan from the calendar', body: 'Use the events shown in your actual calendar to note relevant preparation in Daily Tasks and your strategy notes. The bundled DEMO calendar is an illustration only, not a real economic schedule.' },
     ],
@@ -165,6 +167,7 @@ const tutorialSections = [
       { title: 'Capture while reviewing', body: 'Save a chart for a visual example, an idea for a hypothesis, a question for something to investigate, or a video note for material to revisit.' },
       { title: 'Review and classify', body: 'Use Strategy Lab to keep rules explicit. Move ideas and questions between Open, Testing, Done, and Dropped as evidence changes.' },
       { title: 'Navigate quickly', body: 'The sidebar search filters section and concept names. Knowledge Base and Strategy Lab links stay visible; entries you opted into appear beneath their section.' },
+      { title: 'Read full text on smaller screens', body: 'Long task names, notes, and other clipped labels wrap onto additional lines instead of ending with ellipses, so the full text remains visible on phones and tablets.' },
       { title: 'Use Drive links safely', body: 'Paste a Drive file link into the relevant form. For image/video previews, the file must be accessible to the viewer. Drive folders on the dashboard are currently managed in the database, not through an in-app form.' },
     ],
     note: 'Saved records live in the configured database. Avoid putting private Drive links into a shared workspace unless the intended viewers have access.',

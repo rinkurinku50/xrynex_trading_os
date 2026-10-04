@@ -164,7 +164,7 @@ export default function Sidebar({ isAdmin = false }) {
           onClick={() => setOpen(false)}
         />
       )}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-[min(84vw,280px)] shrink-0 flex-col border-r border-line bg-panel px-3 py-4 shadow-2xl shadow-black/40 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:z-auto lg:h-dvh lg:max-h-dvh lg:translate-x-0 lg:shadow-none ${collapsed ? 'lg:w-[72px] lg:px-2' : 'lg:w-[260px]'} ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-[min(86vw,320px)] shrink-0 flex-col border-r border-line bg-panel px-3 py-4 shadow-2xl shadow-black/40 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:z-auto lg:h-dvh lg:max-h-dvh lg:translate-x-0 lg:shadow-none ${collapsed ? 'lg:w-[72px] lg:px-2' : 'lg:w-[260px]'} ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className={`mb-4 flex min-w-0 items-center justify-between gap-1 px-1 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
         <div className={`flex min-w-0 items-center gap-1 ${collapsed ? 'lg:hidden' : ''}`}>
           <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-line bg-black" aria-hidden="true">

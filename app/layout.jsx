@@ -8,14 +8,23 @@ import { isAdminUser } from '@/lib/api-auth';
 import WeeklyCalendarReminder from '@/components/WeeklyCalendarReminder';
 import ConfirmDialogProvider from '@/components/ConfirmDialogProvider';
 import ReminderManager from '@/components/ReminderManager';
+import ResponsiveTruncationTooltip from '@/components/ResponsiveTruncationTooltip';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 
 export const metadata = {
   title: 'Xrynex Trading OS',
   description: 'Xrynex Trading OS — learn, plan, execute, and improve your trading process.',
   icons: {
-    icon: '/xrynex-logo.png',
-    apple: '/xrynex-logo.png',
+    icon: [
+      { url: '/pwa-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pwa-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/pwa-icon-192.png',
   },
+};
+
+export const viewport = {
+  themeColor: '#0a0e13',
 };
 
 export default async function RootLayout({ children }) {
@@ -31,10 +40,12 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className="min-h-screen">
         <ConfirmDialogProvider>
+          <ServiceWorkerRegistration />
+          {!isAuthPage && session && <ResponsiveTruncationTooltip />}
           {!isAuthPage && session && <ReminderManager userId={session.user.id} />}
           <div className="flex min-h-screen min-w-0 flex-col lg:h-dvh lg:min-h-0 lg:flex-row lg:overflow-hidden">
             {!isAuthPage && <Sidebar isAdmin={isAdminUser(session?.user)} />}
-            <main className={`relative min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isAuthPage ? 'flex items-center justify-center' : 'lg:h-dvh lg:min-h-0 lg:overflow-y-auto'}`}>
+            <main className={`relative min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isAuthPage ? 'flex items-center justify-center' : 'pt-16 sm:pt-16 lg:pt-6 lg:h-dvh lg:min-h-0 lg:overflow-y-auto'}`}>
               {pathname === '/login' && (
                 <div className="pointer-events-none absolute inset-x-0 top-12 flex justify-center" aria-hidden="true">
                   <img src="/xrynex-logo.png" alt="" className="w-[min(42vw,360px)] mix-blend-screen opacity-20" />

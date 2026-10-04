@@ -268,7 +268,7 @@ export default function DailyTaskManager({ tasks }) {
             const taskDay = dateKey(task.task_date);
               const isLate = !task.removed_at && !task.done && taskDay < today;
             return (
-              <li key={task.id} className="flex flex-wrap items-center gap-3 py-3">
+              <li key={task.id} className="daily-task-row flex flex-wrap items-center gap-3 py-3">
                 {activeTab !== 'Pending' && activeTab !== 'Removed' && (
                   <input
                     type="checkbox"
@@ -277,25 +277,26 @@ export default function DailyTaskManager({ tasks }) {
                       done: event.target.checked,
                       ...(activeTab === 'Completed' && !event.target.checked ? { task_date: today } : {}),
                     })}
-                    className="h-4 w-4 rounded border-line bg-ink accent-win"
+                    className="daily-task-check h-4 w-4 rounded border-line bg-ink accent-win"
                     aria-label={`${task.done ? 'Reopen' : 'Complete'} ${task.title}`}
                     disabled={Boolean(task.removed_at)}
                   />
                 )}
-                <div className="min-w-0 flex-1">
-                  <p className={`text-[13px] ${task.done ? 'text-muted line-through' : 'text-text'}`}>{task.title}</p>
-                  <p className={`mt-0.5 text-[11px] ${isLate ? 'text-loss' : 'text-muted'}`}>
+                <div className="daily-task-copy min-w-0 flex-1">
+                  <p className={`daily-task-title text-[13px] ${task.done ? 'text-muted line-through' : 'text-text'}`}>{task.title}</p>
+                  <p className={`daily-task-meta mt-0.5 text-[11px] ${isLate ? 'text-loss' : 'text-muted'}`}>
                     {isLate ? `Overdue · ${prettyDate(task.task_date)}` : prettyDate(task.task_date)}
                     {task.reminder_time && ` · Reminder at ${formatTime12Hour(task.reminder_time)}`}
                   </p>
                     {task.completed_at && <p className="mt-0.5 text-[11px] text-win">Completed {prettyDateTime(task.completed_at)}</p>}
                     {task.removed_at && <p className="mt-0.5 text-[11px] text-loss">Removed {prettyDateTime(task.removed_at)}</p>}
                 </div>
-                <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.priority === 'High' ? 'border-loss/30 bg-loss/10 text-loss' : task.priority === 'Low' ? 'border-line bg-panel2 text-muted' : 'border-gold/30 bg-gold/10 text-gold'}`}>
-                  {task.priority || 'Medium'}
-                </span>
+                <div className="daily-task-controls">
+                  <span className={`daily-task-priority rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${task.priority === 'High' ? 'border-loss/30 bg-loss/10 text-loss' : task.priority === 'Low' ? 'border-line bg-panel2 text-muted' : 'border-gold/30 bg-gold/10 text-gold'}`}>
+                    {task.priority || 'Medium'}
+                  </span>
                 {!task.removed_at && activeTab !== 'Completed' && (
-                  <label className="flex items-center gap-1 text-[10px] text-muted" title="Set or clear this task reminder">
+                  <label className="daily-task-reminder flex items-center gap-1 text-[10px] text-muted" title="Set or clear this task reminder">
                     <span className="sr-only">Reminder time for {task.title}</span>
                     <input
                       key={`${task.id}-${task.reminder_time || ''}`}
@@ -361,6 +362,7 @@ export default function DailyTaskManager({ tasks }) {
                     Remove
                   </button>
                 )}
+                </div>
               </li>
             );
           })}

@@ -333,17 +333,19 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
                   <button type="button" className="btn" onClick={() => setEditingId(null)} aria-label="Cancel edit"><LuX className="h-4 w-4" aria-hidden /></button>
                 </form>
               ) : (
-                <div className="flex items-center gap-3">
-                  {!compact && <LuGripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted/60 active:cursor-grabbing" aria-label="Drag to reorder news" />}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 sm:flex-nowrap sm:gap-3">
+                  {!compact && <LuGripVertical className="hidden h-4 w-4 shrink-0 cursor-grab text-muted/60 active:cursor-grabbing sm:block" aria-label="Drag to reorder news" />}
                   <span className={`h-3 w-3 shrink-0 rounded-sm ${priorityStyles[item.priority] || 'bg-muted'}`} aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-medium text-text">{item.title}</div>
+                  <div className="min-w-0 flex-1 basis-full sm:basis-0">
+                    <div className="break-words whitespace-normal text-[14px] font-medium text-text">
+                      {item.title}
+                    </div>
                     <div className="text-[11px] text-muted">{compact ? formatNewYorkDate(itemEventAt) : formatNewYorkTime(itemEventAt)}</div>
                   </div>
                   <span className={`shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${priorityBadgeStyles[item.priority] || 'border-line bg-panel2 text-muted'}`}>
                     {item.priority}
                   </span>
-                  {itemEventAt && <span className="mx-1 h-6 w-[2px] shrink-0 rounded-full bg-muted opacity-80" aria-hidden="true" />}
+                  {itemEventAt && <span className="mx-1 hidden h-6 w-[2px] shrink-0 rounded-full bg-muted opacity-80 sm:block" aria-hidden="true" />}
                   {itemEventAt && (
                     <span
                       className="shrink-0 whitespace-nowrap text-[11px] font-medium text-text"
@@ -352,7 +354,7 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
                       {formatEventClockTime(itemEventAt)}
                     </span>
                   )}
-                  {itemEventAt && (isTodayEvent || isUpcoming || isCompleted) && <span className="mx-1 h-6 w-[2px] shrink-0 rounded-full bg-muted opacity-80" aria-hidden="true" />}
+                  {itemEventAt && (isTodayEvent || isUpcoming || isCompleted) && <span className="mx-1 hidden h-6 w-[2px] shrink-0 rounded-full bg-muted opacity-80 sm:block" aria-hidden="true" />}
                   {isUpcoming && (
                     <span className="shrink-0 whitespace-nowrap rounded-md border border-info/30 bg-info/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-info">
                       Upcoming
@@ -373,9 +375,9 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
                     </span>
                   )}
                   {!compact && <>
-                    <button type="button" className="rounded p-1 text-muted hover:bg-panel2 hover:text-info" onClick={() => startEdit(item)} aria-label={`Edit ${item.title}`}><LuPencil className="h-3.5 w-3.5" aria-hidden /></button>
-                    <button type="button" className="rounded p-1 text-muted hover:bg-panel2 hover:text-info disabled:opacity-50" onClick={() => duplicateNews(item)} disabled={duplicatingId === item.id} aria-label={`Duplicate ${item.title}`} title="Duplicate news"><LuCopy className="h-3.5 w-3.5" aria-hidden /></button>
-                    <button type="button" className="rounded p-1 text-muted hover:bg-panel2 hover:text-loss" onClick={() => removeNews(item)} aria-label={`Remove ${item.title}`}><LuTrash2 className="h-3.5 w-3.5" aria-hidden /></button>
+                    <button type="button" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded p-1 text-muted hover:bg-panel2 hover:text-info sm:min-h-0 sm:min-w-0" onClick={() => startEdit(item)} aria-label={`Edit ${item.title}`}><LuPencil className="h-3.5 w-3.5" aria-hidden /></button>
+                    <button type="button" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded p-1 text-muted hover:bg-panel2 hover:text-info disabled:opacity-50 sm:min-h-0 sm:min-w-0" onClick={() => duplicateNews(item)} disabled={duplicatingId === item.id} aria-label={`Duplicate ${item.title}`} title="Duplicate news"><LuCopy className="h-3.5 w-3.5" aria-hidden /></button>
+                    <button type="button" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded p-1 text-muted hover:bg-panel2 hover:text-loss sm:min-h-0 sm:min-w-0" onClick={() => removeNews(item)} aria-label={`Remove ${item.title}`}><LuTrash2 className="h-3.5 w-3.5" aria-hidden /></button>
                   </>}
                 </div>
               )}

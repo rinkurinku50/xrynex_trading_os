@@ -48,9 +48,9 @@ export default function SelectMenu({
         aria-controls={menuId}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="flex min-w-0 items-center gap-2 truncate">
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
           {optionIcons[optionValue(value)] && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${optionIcons[optionValue(value)]}`} aria-hidden />}
-          <span className="truncate">{display(value)}</span>
+          <span className="break-words whitespace-normal">{display(value)}</span>
         </span>
         <span aria-hidden="true" className={`shrink-0 text-[10px] text-muted transition-transform ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
@@ -67,15 +67,15 @@ export default function SelectMenu({
               type="button"
               role="option"
               aria-selected={optionValue(option) === value}
-              className={`flex w-full items-center justify-between gap-5 whitespace-nowrap rounded-md px-3 py-2 text-left text-[12px] transition-colors hover:bg-panel2 focus-visible:bg-panel2 focus-visible:outline-none ${optionValue(option) === value ? 'text-white' : 'text-muted'}`}
+              className={`flex w-full items-start justify-between gap-3 whitespace-normal rounded-md px-3 py-2 text-left text-[12px] transition-colors hover:bg-panel2 focus-visible:bg-panel2 focus-visible:outline-none ${optionValue(option) === value ? 'text-white' : 'text-muted'}`}
               onClick={() => {
                 onChange(optionValue(option));
                 setOpen(false);
               }}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex min-w-0 items-start gap-2">
                 {optionIcons[optionValue(option)] && <span className={`h-2.5 w-2.5 shrink-0 rounded-sm ${optionIcons[optionValue(option)]}`} aria-hidden />}
-                <span>{display(option)}</span>
+                <span className="break-words">{display(option)}</span>
               </span>
               {optionValue(option) === value && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-win" />}
             </button>

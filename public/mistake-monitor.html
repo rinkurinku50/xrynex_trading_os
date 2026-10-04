@@ -219,7 +219,7 @@
       const theme = THEME[mistake.severity] || THEME.Low;
       const selected = index === spotlightIndex;
       return `<button type="button" data-index="${index}" aria-current="${selected ? 'true' : 'false'}" class="row w-full text-left rounded-lg sm:rounded-xl p-2 sm:p-3 border ${selected ? 'bg-white/10' : 'bg-white/[.02] hover:bg-white/5'}" style="border-color:${selected ? theme.color : 'rgba(255,255,255,.06)'}">
-        <div class="flex items-center justify-between gap-2"><span class="font-semibold text-xs sm:text-sm text-white truncate">${escapeHtml(mistake.title)}</span><span class="font-black text-xs sm:text-sm shrink-0" style="color:${theme.color}">${escapeHtml(mistake.frequency)}×</span></div>
+        <div class="flex items-center justify-between gap-2"><span class="min-w-0 flex-1 break-words whitespace-normal font-semibold text-xs sm:text-sm text-white">${escapeHtml(mistake.title)}</span><span class="font-black text-xs sm:text-sm shrink-0" style="color:${theme.color}">${escapeHtml(mistake.frequency)}×</span></div>
         <div class="text-[10px] sm:text-[11px] text-slate-500 mt-0.5">${escapeHtml(mistake.severity)} · ${escapeHtml(mistake.category)}</div></button>`;
     }).join('');
     const totalHits = activeMistakes.reduce((sum, mistake) => sum + (Number(mistake.frequency) || 0), 0);
