@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080a0e">
+<title>Trading Plan Builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body{height:100%;min-height:100%;margin:0;background:#080a0e;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#e2e8f0}
+  body{overflow:hidden}
+  .glass{background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.085);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+  #ambient{background:radial-gradient(ellipse at 8% 0%,rgba(180,112,24,.12),transparent 40%),radial-gradient(ellipse at 100% 100%,rgba(16,185,129,.055),transparent 35%)}
+  .builder-layout{display:grid;grid-template-columns:285px minmax(0,1fr) 330px;gap:12px;flex:1;min-height:0}
+  .scroll-pane{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.25) transparent}
+  .section-card{transition:border-color .16s,background .16s}
+  .section-card:hover{border-color:rgba(251,191,36,.26)}
+  .section-card.selected{border-color:rgba(251,191,36,.52);background:linear-gradient(125deg,rgba(245,158,11,.09),rgba(255,255,255,.025))}
+  .switch{accent-color:#fbbf24}
+  .preview-expanded{position:fixed!important;inset:14px!important;z-index:80;max-height:none!important;overflow:auto;background:#0c1016}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 10px rgba(52,211,153,.55)}
+  @media(max-width:1100px){body{overflow:auto}.builder-shell{height:auto!important;min-height:100dvh}.builder-layout{grid-template-columns:260px minmax(0,1fr);flex:none}.preview-pane{grid-column:1/-1;min-height:260px}}
+  @media(max-width:700px){.builder-shell{padding:10px!important;gap:10px!important}.builder-layout{grid-template-columns:1fr}.builder-sidebar,.builder-editor,.preview-pane{grid-column:auto}.builder-sidebar{max-height:420px}.builder-editor{min-height:440px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="ambient" class="pointer-events-none fixed inset-0" aria-hidden="true"></div>
+<div class="builder-shell relative flex h-[100dvh] flex-col gap-3 p-3 sm:gap-4 sm:p-5">
+  <header class="glass relative z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 sm:px-5">
+    <div class="flex min-w-0 items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-amber-300/30 bg-amber-300/10 font-mono text-sm font-bold text-amber-300" aria-hidden="true">TP</span><div class="min-w-0"><h1 class="truncate text-sm font-bold tracking-[.16em] text-white sm:text-base">TRADING PLAN BUILDER</h1><p class="mt-0.5 text-[10px] tracking-wide text-slate-500">SHAPE YOUR PRE-TRADE WORKSPACE</p></div></div>
+    <div class="flex flex-wrap items-center justify-end gap-2"><p class="mr-1 flex items-center gap-2 text-[10px] text-slate-400"><span class="status-dot" aria-hidden="true"></span><span id="save-status" role="status">Loading your layout…</span></p><a href="/trading-plan" class="glass flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white">↗ Trading Plan</a><a href="/trading-plan-monitor.html" target="_blank" rel="noopener noreferrer" class="glass flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white">⛶ <span class="hidden sm:inline">Monitor</span></a><button id="save-button" type="button" class="rounded-lg bg-amber-400 px-4 py-2.5 text-xs font-extrabold text-[#17140c] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50" disabled>Save layout</button></div>
+  </header>
+
+  <main class="builder-layout">
+    <aside class="builder-sidebar glass scroll-pane rounded-2xl p-3 sm:p-4" aria-labelledby="section-stack-title">
+      <div class="mb-3 flex items-end justify-between gap-2 px-1"><div><p class="text-[9px] font-bold tracking-[.18em] text-amber-300">YOUR WORKSPACE</p><h2 id="section-stack-title" class="mt-1 text-sm font-semibold text-white">Section stack</h2></div><span id="section-count" class="rounded-full bg-white/[.06] px-2 py-1 font-mono text-[9px] text-slate-400">0</span></div>
+      <div id="section-list" class="space-y-2" aria-live="polite"><p class="p-3 text-xs text-slate-500">Loading sections…</p></div>
+      <form id="new-section-form" class="mt-3 rounded-xl border border-dashed border-amber-300/25 bg-amber-300/[.035] p-3"><label for="new-section-title" class="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add a section</label><div class="flex gap-2"><input id="new-section-title" name="title" class="min-w-0 flex-1 rounded-lg border border-white/[.1] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50" placeholder="Section name" maxlength="48" required><button class="rounded-lg bg-white/[.08] px-3 text-lg text-amber-200 transition hover:bg-amber-300/10" type="submit" aria-label="Add section">+</button></div></form>
+      <p class="mt-3 px-1 text-[9px] leading-relaxed text-slate-600">Disabled sections stay saved, but are omitted from your plan.</p>
+    </aside>
+
+    <section class="builder-editor glass scroll-pane rounded-2xl p-4 sm:p-5" aria-labelledby="editor-heading"><div id="section-editor"><p class="py-16 text-center text-sm text-slate-500">Loading your section settings…</p></div></section>
+
+    <aside id="preview-pane" class="preview-pane glass scroll-pane rounded-2xl p-3 sm:p-4" aria-labelledby="preview-heading"><div class="mb-3 flex items-end justify-between gap-2 px-1"><div><p class="text-[9px] font-bold tracking-[.18em] text-emerald-300">LIVE PREVIEW</p><h2 id="preview-heading" class="mt-1 text-sm font-semibold text-white">Trading Plan</h2></div><button type="button" data-action="preview-expand" class="rounded-md p-1.5 text-slate-400 transition hover:bg-white/[.06] hover:text-white" title="Expand preview" aria-label="Expand preview">⛶</button></div><div id="preview-content" class="space-y-2"><p class="p-3 text-xs text-slate-500">Your enabled sections will appear here.</p></div></aside>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const byId = (id) => document.getElementById(id);
+  const defaultLayout = {
+    sections: [
+      { id: 'checklist', type: 'checklist', title: 'Trading Checklist', enabled: true, subsections: [{ id: 'pre-market', title: 'Pre-Market', enabled: true }, { id: 'entry-criteria', title: 'Entry Criteria', enabled: true }, { id: 'review', title: 'Review', enabled: true }] },
+      { id: 'scheduler', type: 'scheduler', title: 'Scheduler', enabled: true },
+      { id: 'conditions', type: 'conditions', title: 'Conditions to Assess', enabled: true, items: [{ id: 'trend-bias', title: 'Trend & bias', enabled: true, done: false }, { id: 'volatility', title: 'Volatility', enabled: true, done: false }, { id: 'key-levels', title: 'Key levels', enabled: true, done: false }, { id: 'risk-limit', title: 'Risk limit', enabled: true, done: false }] },
+      { id: 'weekly-calendar', type: 'weekly-calendar', title: 'Weekly Calendar', enabled: true, zoom: 100, view: 'fit' },
+    ],
+  };
+  const defaultChecklist = {
+    groups: [
+      { id: 'pre-market', title: 'Pre-Market', rules: [{ id: 'calendar', title: 'Review economic calendar and news', required: false }, { id: 'levels', title: 'Mark key levels and higher-timeframe trend', required: true }, { id: 'bias', title: 'Define bias and the only setups I trade today', required: true }, { id: 'loss-limit', title: 'Confirm daily loss limit is set', required: true }, { id: 'focus', title: 'Write the one thing I must execute well', required: true }] },
+      { id: 'entry-criteria', title: 'Entry Criteria', rules: [{ id: 'plan-match', title: 'Setup matches my written plan', required: true }, { id: 'trend', title: 'Trend and momentum confirm the direction', required: false }, { id: 'trigger', title: 'Entry trigger has printed, no anticipating', required: true }, { id: 'risk-reward', title: 'Risk-to-reward is at least 2:1', required: true }] },
+      { id: 'review', title: 'Review', rules: [{ id: 'journal', title: 'Journal the trade with a screenshot', required: true }, { id: 'mistake', title: 'Record one lesson without judging the outcome', required: false }] },
+    ], sessions: 6, requirements: ['Must pass', 'Optional'],
+  };
+  let layout = structuredClone(defaultLayout);
+  let checklist = structuredClone(defaultChecklist);
+  let news = [];
+  let calendarImage = '';
+  let selectedId = 'checklist';
+  let previewExpanded = false;
+  let loaded = false;
+  let dirty = false;
+  let saveTimer = null;
+  let saveQueue = Promise.resolve();
+
+  function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function uid(prefix) { return `${prefix}-${crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`; }
+  function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]); }
+  function currentSection() { return layout.sections.find((section) => section.id === selectedId) || layout.sections[0]; }
+  function sectionTypeName(section) { return ({ checklist: 'CHECKLIST', scheduler: 'SCHEDULER', conditions: 'CONDITIONS', 'weekly-calendar': 'CALENDAR', custom: 'CUSTOM' })[section.type] || 'SECTION'; }
+  function findGroup(id) { return checklist.groups.find((group) => group.id === id); }
+
+  function markDirty() {
+    if (!loaded) return;
+    dirty = true;
+    byId('save-status').textContent = 'Unsaved changes';
+    byId('save-button').disabled = false;
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(saveNow, 700);
+  }
+
+  function renderSectionList() {
+    byId('section-count').textContent = String(layout.sections.length).padStart(2, '0');
+    byId('section-list').innerHTML = layout.sections.map((section, index) => `<article class="section-card ${section.id === selectedId ? 'selected' : ''} rounded-xl border border-white/[.07] bg-white/[.025] p-2.5">
+      <div class="flex items-center gap-2"><button type="button" data-action="select-section" data-section-id="${escapeHtml(section.id)}" class="min-w-0 flex-1 text-left"><span class="block truncate text-xs font-semibold text-slate-200">${escapeHtml(section.title)}</span><span class="mt-0.5 block text-[8px] font-bold tracking-[.14em] text-slate-500">${sectionTypeName(section)}${section.type === 'checklist' ? ` · ${(section.subsections || []).filter((part) => part.enabled !== false).length} VISIBLE` : ''}</span></button><label class="flex shrink-0 items-center" title="Show section"><input type="checkbox" data-action="toggle-section" data-section-id="${escapeHtml(section.id)}" aria-label="Show ${escapeHtml(section.title)}" ${section.enabled !== false ? 'checked' : ''} class="switch h-4 w-4 rounded"></label></div>
+      <div class="mt-2 flex items-center justify-between border-t border-white/[.05] pt-2"><span class="text-[9px] ${section.enabled !== false ? 'text-emerald-300' : 'text-slate-600'}">${section.enabled !== false ? 'ON PLAN' : 'HIDDEN'}</span><div class="flex gap-1"><button type="button" data-action="move-section" data-direction="-1" data-section-id="${escapeHtml(section.id)}" ${index === 0 ? 'disabled' : ''} class="rounded px-1.5 text-xs text-slate-500 hover:bg-white/[.06] hover:text-white disabled:opacity-20" title="Move up" aria-label="Move ${escapeHtml(section.title)} up">↑</button><button type="button" data-action="move-section" data-direction="1" data-section-id="${escapeHtml(section.id)}" ${index === layout.sections.length - 1 ? 'disabled' : ''} class="rounded px-1.5 text-xs text-slate-500 hover:bg-white/[.06] hover:text-white disabled:opacity-20" title="Move down" aria-label="Move ${escapeHtml(section.title)} down">↓</button>${section.type === 'custom' ? `<button type="button" data-action="delete-section" data-section-id="${escapeHtml(section.id)}" class="rounded px-1.5 text-xs text-slate-500 hover:bg-red-400/10 hover:text-red-300" title="Delete section" aria-label="Delete ${escapeHtml(section.title)}">×</button>` : ''}</div></div>
+    </article>`).join('');
+  }
+
+  function renderChecklistSubsections(section) {
+    const rows = (section.subsections || []).map((subsection) => `<div class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><div class="flex flex-wrap items-center gap-2"><label class="flex shrink-0 items-center gap-2 text-[10px] text-slate-400"><input type="checkbox" data-action="toggle-subsection" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" ${subsection.enabled !== false ? 'checked' : ''} class="switch h-4 w-4 rounded"><span>Show</span></label><input data-field="checklist-subsection-title" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" value="${escapeHtml(subsection.title)}" maxlength="60" class="min-w-0 flex-1 rounded-lg border border-white/[.08] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50"><span class="shrink-0 text-[9px] text-slate-500">${findGroup(subsection.id)?.rules?.length || 0} items</span><button type="button" data-action="remove-checklist-subsection" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" class="rounded-md px-2 py-1.5 text-[10px] text-slate-500 hover:bg-red-400/10 hover:text-red-300">Remove</button></div></div>`).join('');
+    return `<div class="space-y-2">${rows}</div><form data-form="add-checklist-subsection" data-section-id="${escapeHtml(section.id)}" class="mt-3 flex gap-2"><input name="title" required maxlength="60" placeholder="New checklist subsection" class="min-w-0 flex-1 rounded-lg border border-white/[.08] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50"><button class="rounded-lg border border-amber-300/25 px-3 text-xs font-semibold text-amber-200 hover:bg-amber-300/10" type="submit">Add subsection</button></form>`;
+  }
+
+  function renderItems(items, section, subsectionId = '') {
+    const rows = (items || []).map((item) => `<div class="flex flex-wrap items-center gap-2 rounded-lg border border-white/[.06] bg-white/[.02] p-2.5"><label class="flex shrink-0 items-center" title="Show item"><input type="checkbox" data-action="toggle-item" data-section-id="${escapeHtml(section.id)}" data-item-id="${escapeHtml(item.id)}" data-subsection-id="${escapeHtml(subsectionId)}" aria-label="Show ${escapeHtml(item.title)}" ${item.enabled !== false ? 'checked' : ''} class="switch h-4 w-4 rounded"></label><input data-field="item-title" data-section-id="${escapeHtml(section.id)}" data-item-id="${escapeHtml(item.id)}" data-subsection-id="${escapeHtml(subsectionId)}" value="${escapeHtml(item.title)}" maxlength="100" class="min-w-0 flex-1 rounded-md border border-white/[.07] bg-[#0a0e13] px-2.5 py-2 text-xs text-slate-200 outline-none focus:border-amber-300/40"><button type="button" data-action="delete-item" data-section-id="${escapeHtml(section.id)}" data-item-id="${escapeHtml(item.id)}" data-subsection-id="${escapeHtml(subsectionId)}" class="rounded-md px-2 py-1.5 text-[10px] text-slate-500 hover:bg-red-400/10 hover:text-red-300" aria-label="Delete ${escapeHtml(item.title)}">Remove</button></div>`).join('');
+    return `<div class="space-y-2">${rows || '<p class="py-2 text-[10px] text-slate-600">No items yet.</p>'}</div><form data-form="add-item" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsectionId)}" class="mt-2 flex gap-2"><input name="title" required maxlength="100" placeholder="Add an item" class="min-w-0 flex-1 rounded-lg border border-white/[.08] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50"><button type="submit" class="rounded-lg border border-white/[.1] px-3 text-xs text-slate-300 hover:bg-white/[.05]">Add item</button></form>`;
+  }
+
+  function renderCustomSubsections(section) {
+    const rows = (section.subsections || []).map((subsection) => `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><div class="mb-3 flex flex-wrap items-center gap-2"><label class="flex shrink-0 items-center" title="Show subsection"><input type="checkbox" data-action="toggle-subsection" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" ${subsection.enabled !== false ? 'checked' : ''} class="switch h-4 w-4 rounded"></label><input data-field="subsection-title" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" value="${escapeHtml(subsection.title)}" maxlength="60" class="min-w-0 flex-1 rounded-lg border border-white/[.08] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50"><button type="button" data-action="delete-custom-subsection" data-section-id="${escapeHtml(section.id)}" data-subsection-id="${escapeHtml(subsection.id)}" class="rounded-md px-2 py-1.5 text-[10px] text-slate-500 hover:bg-red-400/10 hover:text-red-300">Remove subsection</button></div>${renderItems(subsection.items, section, subsection.id)}</section>`).join('');
+    return `<div class="mt-4 space-y-3">${rows}</div><form data-form="add-custom-subsection" data-section-id="${escapeHtml(section.id)}" class="mt-3 flex gap-2"><input name="title" required maxlength="60" placeholder="New subsection" class="min-w-0 flex-1 rounded-lg border border-white/[.08] bg-[#0a0e13] px-3 py-2 text-xs text-white outline-none focus:border-amber-300/50"><button class="rounded-lg border border-amber-300/25 px-3 text-xs font-semibold text-amber-200 hover:bg-amber-300/10" type="submit">Add subsection</button></form>`;
+  }
+
+  function renderEditor() {
+    const section = currentSection();
+    if (!section) { byId('section-editor').innerHTML = '<p class="py-16 text-center text-sm text-slate-500">Add a section to begin building your plan.</p>'; return; }
+    let settings = '';
+    if (section.type === 'checklist') settings = `<div class="mt-5"><h3 class="text-xs font-semibold text-white">Checklist subsections</h3><p class="mb-3 mt-1 text-[10px] text-slate-500">Each visible subsection appears in the Trading Checklist card.</p>${renderChecklistSubsections(section)}</div>`;
+    else if (section.type === 'conditions') settings = `<div class="mt-5"><h3 class="text-xs font-semibold text-white">Condition items</h3><p class="mb-3 mt-1 text-[10px] text-slate-500">Add, rename, show, or hide each market check.</p>${renderItems(section.items, section)}</div>`;
+    else if (section.type === 'weekly-calendar') settings = `<div class="mt-5 space-y-4"><div class="rounded-xl border border-white/[.07] bg-white/[.025] p-4"><p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Image scale</p><div class="mt-3 flex items-center gap-3"><button type="button" data-action="calendar-zoom" data-delta="-25" class="grid h-9 w-9 place-items-center rounded-lg border border-white/[.1] text-lg text-slate-300 hover:bg-white/[.06]" aria-label="Zoom out">−</button><span class="min-w-[52px] text-center font-mono text-sm tabular-nums text-white">${Number(section.zoom) || 100}%</span><button type="button" data-action="calendar-zoom" data-delta="25" class="grid h-9 w-9 place-items-center rounded-lg border border-white/[.1] text-lg text-slate-300 hover:bg-white/[.06]" aria-label="Zoom in">+</button></div><p class="mt-2 text-[9px] text-slate-600">The saved image viewer also includes fullscreen and zoom controls.</p></div><div class="rounded-xl border border-white/[.07] bg-white/[.025] p-4"><label class="text-[10px] font-semibold uppercase tracking-wide text-slate-400" for="calendar-view">Image view</label><select id="calendar-view" data-field="calendar-view" class="mt-2 w-full rounded-lg border border-white/[.1] bg-[#0a0e13] px-3 py-2.5 text-xs text-slate-200"><option value="fit" ${section.view !== 'fill' ? 'selected' : ''}>Fit image</option><option value="fill" ${section.view === 'fill' ? 'selected' : ''}>Fill frame</option></select><p class="mt-2 text-[9px] text-slate-600">Different data views are not available for screenshot calendars.</p></div></div>`;
+    else if (section.type === 'scheduler') settings = '<div class="mt-5 rounded-xl border border-white/[.07] bg-white/[.025] p-4"><p class="text-xs font-semibold text-white">Saved scheduler</p><p class="mt-1 text-[11px] leading-relaxed text-slate-500">Uses your existing economic news items and editing controls. Hiding Scheduler will not remove saved events.</p><div class="mt-4 flex items-center gap-2 text-[10px] text-emerald-300"><span class="status-dot"></span>Connected to saved events</div></div>';
+    else settings = `<div class="mt-5"><h3 class="text-xs font-semibold text-white">Section items</h3><p class="mb-3 mt-1 text-[10px] text-slate-500">Add content here or organize it into enabled subsections.</p>${renderItems(section.items, section)}${renderCustomSubsections(section)}</div>`;
+    byId('section-editor').innerHTML = `<div class="flex flex-wrap items-start justify-between gap-4 border-b border-white/[.07] pb-4"><div><p class="text-[9px] font-bold tracking-[.18em] text-amber-300">${sectionTypeName(section)} CONFIGURATION</p><h2 id="editor-heading" class="mt-1 text-lg font-semibold text-white">${escapeHtml(section.title)}</h2></div><label class="flex items-center gap-2 rounded-lg border border-white/[.08] bg-white/[.025] px-3 py-2 text-[10px] text-slate-300"><input type="checkbox" data-action="toggle-section" data-section-id="${escapeHtml(section.id)}" ${section.enabled !== false ? 'checked' : ''} class="switch h-4 w-4 rounded">Show on Trading Plan</label></div><div class="mt-4"><label class="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500" for="section-title-input">Section name</label><input id="section-title-input" data-field="section-title" data-section-id="${escapeHtml(section.id)}" value="${escapeHtml(section.title)}" maxlength="48" class="w-full rounded-lg border border-white/[.1] bg-[#0a0e13] px-3 py-2.5 text-sm text-white outline-none focus:border-amber-300/50"></div>${settings}`;
+  }
+
+  function previewItem(item) { return `<li class="flex items-start gap-2 border-t border-white/[.05] py-2"><span class="mt-0.5 h-4 w-4 shrink-0 rounded border ${item.done ? 'border-amber-300 bg-amber-300 text-[#14120c]' : 'border-slate-600'} text-center text-[10px] leading-4">${item.done ? '✓' : ''}</span><span class="min-w-0 flex-1 text-[10px] ${item.done ? 'text-slate-500 line-through' : 'text-slate-300'}">${escapeHtml(item.title)}</span></li>`; }
+
+  function renderPreview() {
+    const sections = layout.sections.filter((section) => section.enabled !== false);
+    byId('preview-content').innerHTML = sections.length ? sections.map((section) => {
+      if (section.type === 'checklist') {
+        const visible = (section.subsections || []).filter((subsection) => subsection.enabled !== false);
+        return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><h3 class="text-xs font-semibold text-white">${escapeHtml(section.title)}</h3>${visible.map((subsection) => { const group = findGroup(subsection.id); return `<div class="mt-3"><div class="flex items-center justify-between text-[9px] text-slate-400"><span>${escapeHtml(subsection.title)}</span><span>${group?.rules?.length || 0}</span></div><ul>${(group?.rules || []).slice(0, 3).map(previewItem).join('')}</ul></div>`; }).join('') || '<p class="mt-2 text-[10px] text-slate-600">No subsections enabled.</p>'}</section>`;
+      }
+      if (section.type === 'scheduler') return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><h3 class="text-xs font-semibold text-white">${escapeHtml(section.title)}</h3>${news.slice(0, 2).map((event) => `<div class="mt-2 border-t border-white/[.05] pt-2 text-[10px] text-slate-400">${escapeHtml(event.title)} <span class="text-slate-600">· ${escapeHtml(event.priority || 'Scheduled')}</span></div>`).join('') || '<p class="mt-2 text-[10px] text-slate-600">Saved news events will appear here.</p>'}</section>`;
+      if (section.type === 'conditions') return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><h3 class="text-xs font-semibold text-white">${escapeHtml(section.title)}</h3><ul>${(section.items || []).filter((item) => item.enabled !== false).map(previewItem).join('') || '<li class="pt-2 text-[10px] text-slate-600">No visible conditions.</li>'}</ul></section>`;
+      if (section.type === 'weekly-calendar') return `<section class="overflow-hidden rounded-xl border border-white/[.07] bg-white/[.025] p-3"><div class="flex items-center justify-between gap-2"><h3 class="text-xs font-semibold text-white">${escapeHtml(section.title)}</h3><span class="font-mono text-[9px] text-slate-500">${Number(section.zoom) || 100}%</span></div>${calendarImage ? `<img src="${escapeHtml(calendarImage)}" alt="Calendar preview" class="mt-3 w-full rounded-md ${section.view === 'fill' ? 'h-24 object-cover' : 'h-24 object-contain'}">` : '<div class="mt-3 grid h-20 place-items-center rounded-md border border-dashed border-white/[.08] text-[9px] text-slate-600">Calendar image preview</div>'}<div class="mt-2 flex items-center justify-between text-[9px] text-slate-500"><span>${section.view === 'fill' ? 'Fill frame' : 'Fit image'}</span><span>Expand · Zoom in/out</span></div></section>`;
+      const subsections = (section.subsections || []).filter((part) => part.enabled !== false);
+      return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><h3 class="text-xs font-semibold text-white">${escapeHtml(section.title)}</h3><ul>${(section.items || []).filter((item) => item.enabled !== false).map(previewItem).join('')}</ul>${subsections.map((part) => `<div class="mt-3"><p class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">${escapeHtml(part.title)}</p><ul>${(part.items || []).filter((item) => item.enabled !== false).map(previewItem).join('')}</ul></div>`).join('')}</section>`;
+    }).join('') : '<div class="rounded-xl border border-dashed border-white/[.1] p-5 text-center text-xs text-slate-500">All sections are hidden.</div>';
+    byId('preview-pane').classList.toggle('preview-expanded', previewExpanded);
+  }
+
+  function renderAll() {
+    if (!layout.sections.some((section) => section.id === selectedId)) selectedId = layout.sections[0]?.id;
+    renderSectionList();
+    renderEditor();
+    renderPreview();
+  }
+
+  function markDirty() {
+    if (!loaded) return;
+    dirty = true;
+    byId('save-status').textContent = 'Unsaved changes';
+    byId('save-button').disabled = false;
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(saveNow, 700);
+  }
+
+  function saveNow() {
+    window.clearTimeout(saveTimer);
+    if (!loaded) return;
+    const snapshot = clone({ layout, checklist });
+    const snapshotText = JSON.stringify(snapshot);
+    byId('save-status').textContent = 'Saving…';
+    saveQueue = saveQueue.catch(() => {}).then(async () => {
+      const response = await fetch('/api/preferences', { method: 'PUT', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: { 'trading-plan-layout': snapshot.layout, 'trading-plan-checklist': snapshot.checklist } }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save your layout.');
+      if (JSON.stringify({ layout, checklist }) === snapshotText) {
+        dirty = false;
+        byId('save-status').textContent = 'All changes saved';
+        byId('save-button').disabled = true;
+      } else {
+        byId('save-status').textContent = 'Saving latest changes…';
+        saveTimer = window.setTimeout(saveNow, 50);
+      }
+    }).catch((error) => {
+      byId('save-status').textContent = `Save failed: ${error.message}`;
+      byId('save-button').disabled = false;
+    });
+    return saveQueue;
+  }
+
+  function moveSection(id, direction) {
+    const index = layout.sections.findIndex((section) => section.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= layout.sections.length) return;
+    const sections = [...layout.sections];
+    [sections[index], sections[nextIndex]] = [sections[nextIndex], sections[index]];
+    layout = { ...layout, sections };
+    renderAll();
+    markDirty();
+  }
+
+  function removeItem(section, itemId, subsectionId = '') {
+    if (subsectionId) {
+      const subsection = section.subsections.find((item) => item.id === subsectionId);
+      subsection.items = subsection.items.filter((item) => item.id !== itemId);
+    } else section.items = (section.items || []).filter((item) => item.id !== itemId);
+  }
+
+  function updateField(target, value) {
+    const section = layout.sections.find((item) => item.id === target.dataset.sectionId);
+    if (!section) return;
+    const field = target.dataset.field;
+    if (field === 'section-title') section.title = value;
+    if (field === 'checklist-subsection-title') {
+      const subsection = section.subsections.find((item) => item.id === target.dataset.subsectionId);
+      if (subsection) subsection.title = value;
+      const group = findGroup(target.dataset.subsectionId);
+      if (group) group.title = value;
+    }
+    if (field === 'item-title') {
+      const subsection = (section.subsections || []).find((item) => item.id === target.dataset.subsectionId);
+      const items = subsection ? subsection.items : section.items;
+      const item = (items || []).find((entry) => entry.id === target.dataset.itemId);
+      if (item) item.title = value;
+    }
+    if (field === 'subsection-title') {
+      const subsection = (section.subsections || []).find((item) => item.id === target.dataset.subsectionId);
+      if (subsection) subsection.title = value;
+    }
+    if (field === 'calendar-view') section.view = value;
+    renderSectionList();
+    renderPreview();
+    markDirty();
+  }
+
+  function addChecklistSubsection(section, title) {
+    const id = uid('group');
+    checklist.groups = [...checklist.groups, { id, title, rules: [] }];
+    section.subsections = [...(section.subsections || []), { id, title, enabled: true }];
+  }
+
+  function addItem(section, title, subsectionId = '') {
+    const item = { id: uid('item'), title, enabled: true, done: false };
+    if (subsectionId) {
+      const subsection = section.subsections.find((part) => part.id === subsectionId);
+      subsection.items = [...(subsection.items || []), item];
+    } else section.items = [...(section.items || []), item];
+  }
+
+  async function loadData() {
+    try {
+      const [preferencesResponse, newsResponse, calendarResponse] = await Promise.all([
+        fetch('/api/preferences?keys=trading-plan-layout,trading-plan-checklist', { cache: 'no-store' }),
+        fetch('/api/economic-news', { cache: 'no-store' }),
+        fetch('/api/calendar-screenshot', { cache: 'no-store' }),
+      ]);
+      const [preferences, savedNews, calendar] = await Promise.all([preferencesResponse.json(), newsResponse.json(), calendarResponse.json()]);
+      const failed = [preferencesResponse, newsResponse, calendarResponse].find((response) => !response.ok);
+      if (failed) throw new Error(preferences.error || savedNews.error || calendar.error || 'Sign in to configure your Trading Plan.');
+      if (!preferences.values?.['trading-plan-layout']) {
+        const initialize = await fetch('/api/preferences', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'initialize', keys: ['trading-plan-layout'] }) });
+        if (!initialize.ok) throw new Error('Could not initialize the Trading Plan layout.');
+        return loadData();
+      }
+      layout = clone(preferences.values['trading-plan-layout']);
+      checklist = clone(preferences.values['trading-plan-checklist'] || defaultChecklist);
+      news = Array.isArray(savedNews) ? savedNews : [];
+      calendarImage = calendar.image_url || '';
+      const checklistSection = layout.sections.find((section) => section.type === 'checklist');
+      if (checklistSection) {
+        const known = new Set((checklistSection.subsections || []).map((item) => item.id));
+        for (const group of checklist.groups || []) if (!known.has(group.id)) checklistSection.subsections.push({ id: group.id, title: group.title, enabled: true });
+      }
+      selectedId = layout.sections[0]?.id || 'checklist';
+      loaded = true;
+      renderAll();
+      byId('save-status').textContent = 'All changes saved';
+      byId('save-button').disabled = true;
+    } catch (error) {
+      byId('save-status').textContent = error.message;
+      byId('section-editor').innerHTML = `<div class="rounded-xl border border-red-400/20 bg-red-400/[.06] p-5 text-center"><p class="text-sm text-red-200">${escapeHtml(error.message)}</p><a href="/login?next=%2Ftrading-plan-builder.html" class="mt-3 inline-block text-xs text-amber-300 underline underline-offset-2">Sign in to continue</a></div>`;
+    }
+  }
+
+  document.addEventListener('click', (event) => {
+    const control = event.target.closest('[data-action]');
+    if (!control) return;
+    const action = control.dataset.action;
+    const section = layout.sections.find((item) => item.id === control.dataset.sectionId);
+    if (action === 'select-section') { selectedId = control.dataset.sectionId; renderAll(); }
+    if (action === 'move-section') moveSection(control.dataset.sectionId, Number(control.dataset.direction));
+    if (action === 'delete-section' && section?.type === 'custom' && window.confirm(`Delete “${section.title}” and its content?`)) {
+      layout.sections = layout.sections.filter((item) => item.id !== section.id);
+      selectedId = layout.sections[0]?.id;
+      renderAll(); markDirty();
+    }
+    if (action === 'remove-checklist-subsection' && section?.type === 'checklist' && window.confirm('Delete this checklist subsection and its items?')) {
+      checklist.groups = checklist.groups.filter((group) => group.id !== control.dataset.subsectionId);
+      section.subsections = section.subsections.filter((item) => item.id !== control.dataset.subsectionId);
+      renderAll(); markDirty();
+    }
+    if (action === 'delete-custom-subsection' && section?.type === 'custom' && window.confirm('Delete this subsection and its content?')) {
+      section.subsections = section.subsections.filter((item) => item.id !== control.dataset.subsectionId);
+      renderAll(); markDirty();
+    }
+    if (action === 'delete-item' && section && window.confirm('Remove this item?')) {
+      removeItem(section, control.dataset.itemId, control.dataset.subsectionId);
+      renderAll(); markDirty();
+    }
+    if (action === 'calendar-zoom' && section?.type === 'weekly-calendar') {
+      section.zoom = Math.max(50, Math.min(300, (Number(section.zoom) || 100) + Number(control.dataset.delta)));
+      renderEditor(); renderSectionList(); renderPreview(); markDirty();
+    }
+    if (action === 'preview-expand') { previewExpanded = !previewExpanded; renderPreview(); }
+  });
+
+  document.addEventListener('change', (event) => {
+    const control = event.target;
+    if (control.dataset.action === 'toggle-section') {
+      const section = layout.sections.find((item) => item.id === control.dataset.sectionId);
+      if (section) { section.enabled = control.checked; renderAll(); markDirty(); }
+    }
+    if (control.dataset.action === 'toggle-subsection') {
+      const section = layout.sections.find((item) => item.id === control.dataset.sectionId);
+      const subsection = section?.subsections?.find((item) => item.id === control.dataset.subsectionId);
+      if (subsection) { subsection.enabled = control.checked; renderAll(); markDirty(); }
+    }
+    if (control.dataset.action === 'toggle-item') {
+      const section = layout.sections.find((item) => item.id === control.dataset.sectionId);
+      const subsection = section?.subsections?.find((item) => item.id === control.dataset.subsectionId);
+      const items = subsection ? subsection.items : section?.items;
+      const item = (items || []).find((entry) => entry.id === control.dataset.itemId);
+      if (item) { item.enabled = control.checked; renderAll(); markDirty(); }
+    }
+    if (control.dataset.field === 'calendar-view') updateField(control, control.value);
+  });
+
+  document.addEventListener('input', (event) => {
+    if (event.target.dataset.field) updateField(event.target, event.target.value);
+  });
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (form.id === 'new-section-form') {
+      event.preventDefault();
+      const title = form.elements.title.value.trim();
+      if (!title) return;
+      const section = { id: uid('section'), type: 'custom', title, enabled: true, items: [], subsections: [] };
+      layout.sections.push(section);
+      selectedId = section.id;
+      form.reset(); renderAll(); markDirty();
+      return;
+    }
+    const type = form.dataset.form;
+    if (!type) return;
+    event.preventDefault();
+    const section = layout.sections.find((item) => item.id === form.dataset.sectionId);
+    const title = form.elements.title.value.trim();
+    if (!section || !title) return;
+    if (type === 'add-checklist-subsection') addChecklistSubsection(section, title);
+    if (type === 'add-custom-subsection') section.subsections.push({ id: uid('subsection'), title, enabled: true, items: [] });
+    if (type === 'add-item') addItem(section, title, form.dataset.subsectionId);
+    form.reset(); renderAll(); markDirty();
+  });
+
+  byId('save-button').addEventListener('click', saveNow);
+  loadData();
+})();
+</script>
+</body>
+</html>

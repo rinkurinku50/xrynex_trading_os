@@ -12,8 +12,9 @@ function requirementFor(rule) {
   return rule.requirement || (rule.required ? 'Must pass' : 'Optional');
 }
 
-export default function TradingPlanChecklist() {
+export default function TradingPlanChecklist({ title = 'Trading Checklist', hiddenGroupIds = [] }) {
   const confirm = useConfirmDialog();
+  const hiddenGroupIdSet = useMemo(() => new Set(hiddenGroupIds), [hiddenGroupIds]);
   const [groups, setGroups] = useState([]);
   const [collapsed, setCollapsed] = useState({});
   const [filter, setFilter] = useState('All');
@@ -64,7 +65,7 @@ export default function TradingPlanChecklist() {
   }, [groups, hydrated, requirements, sessions]);
 
   const stats = useMemo(() => {
-    const rules = groups.flatMap((group) => group.rules);
+    const rules = groups.filter((group) => !hiddenGroupIdSet.has(group.id)).flatMap((group) => group.rules);
     const completed = rules.filter((rule) => rule.done).length;
     const mustPass = rules.filter((rule) => requirementFor(rule) === 'Must pass');
     const passedRequired = mustPass.filter((rule) => rule.done).length;
@@ -76,7 +77,7 @@ export default function TradingPlanChecklist() {
       completion: rules.length ? Math.round((completed / rules.length) * 100) : 0,
       readiness: mustPass.length && passedRequired === mustPass.length,
     };
-  }, [groups]);
+  }, [groups, hiddenGroupIdSet]);
 
   function toggleRule(groupId, ruleId) {
     setGroups((current) => current.map((group) => group.id !== groupId ? group : {
@@ -95,7 +96,7 @@ export default function TradingPlanChecklist() {
   function uncheckAll() {
     setGroups((current) => current.map((group) => ({
       ...group,
-      rules: group.rules.map((rule) => ({ ...rule, done: false })),
+      rules: hiddenGroupIdSet.has(group.id) ? group.rules : group.rules.map((rule) => ({ ...rule, done: false })),
     })));
   }
 
@@ -232,7 +233,7 @@ export default function TradingPlanChecklist() {
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-win text-ink" aria-hidden>✓</span>
           <div className="min-w-0">
-            <h2 className="truncate text-[16px] font-semibold text-white">Trading Plan</h2>
+            <h2 className="truncate text-[16px] font-semibold text-white">{title}</h2>
             <p className="text-[12px] text-muted">{new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
         </div>
@@ -316,7 +317,7 @@ export default function TradingPlanChecklist() {
         </div>
 
         <div className="space-y-4">
-          {groups.map((group) => {
+          {groups.filter((group) => !hiddenGroupIdSet.has(group.id)).map((group) => {
             const visibleRules = group.rules.filter((rule) => {
               if (filter === 'All') return true;
               if (filter === 'Must pass') return requirementFor(rule) === 'Must pass';

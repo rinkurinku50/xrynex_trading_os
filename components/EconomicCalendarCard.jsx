@@ -25,8 +25,10 @@ function weekLabel() {
   return `${monday.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' })} – ${sunday.toLocaleDateString('en-US', { ...options, year: 'numeric', timeZone: 'UTC' })}`;
 }
 
-export default function EconomicCalendarCard({ initialUrl = '', initialOpacity = 15, initialNews = [] }) {
+export default function EconomicCalendarCard({ initialUrl = '', initialOpacity = 15, initialNews = [], title = 'This week’s economic calendar', showNews = true, initialZoom = 100, imageView = 'fit' }) {
   const confirm = useConfirmDialog();
+  const configuredZoom = Number(initialZoom) > 3 ? Number(initialZoom) / 100 : Number(initialZoom);
+  const startZoom = Math.max(0.5, Math.min(3, Number.isFinite(configuredZoom) && configuredZoom > 0 ? configuredZoom : 1));
   const [imageUrl, setImageUrl] = useState(initialUrl);
   const [draftUrl, setDraftUrl] = useState(initialUrl);
   const [error, setError] = useState('');
@@ -34,7 +36,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
   const [saving, setSaving] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
-  const [imageZoom, setImageZoom] = useState(1);
+  const [imageZoom, setImageZoom] = useState(startZoom);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [overlayOpacity, setOverlayOpacity] = useState(initialOpacity);
@@ -154,10 +156,10 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
   }
 
   return (
-    <Panel title="This week’s economic calendar" icon="🗓" action={<span className="text-right text-[12px] text-muted">{weekLabel()} · {newYorkTime || '—'} New York time</span>}>
-      <div className="mb-4">
+    <Panel title={title} icon="🗓" action={<span className="text-right text-[12px] text-muted">{weekLabel()} · {newYorkTime || '—'} New York time</span>}>
+      {showNews && <div className="mb-4">
         <EconomicNewsCard initialNews={initialNews} />
-      </div>
+      </div>}
       <div className="mb-4 flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-line" />
         <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">Calendar source</span>
@@ -232,7 +234,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
                 ref={imageTriggerRef}
                 type="button"
                 className="group relative block w-full cursor-zoom-in border-0 bg-ink p-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-win"
-                onClick={() => { setImageZoom(1); setImageOpen(true); }}
+                onClick={() => { setImageZoom(startZoom); setImageOpen(true); }}
                 aria-label="View economic calendar image full size"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -240,7 +242,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
                   key={imageSrc}
                   src={imageSrc}
                   alt={`Economic calendar for the week of ${weekLabel()}`}
-                  className="max-h-[680px] w-full object-contain"
+                  className={`max-h-[680px] w-full ${imageView === 'fill' ? 'object-cover' : 'object-contain'}`}
                   onError={() => setImageFailed(true)}
                 />
                 <div className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: overlayOpacity / 100 }} aria-hidden="true" />

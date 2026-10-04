@@ -119,7 +119,7 @@ export default function RoutineQuickView({ userId }) {
         </Link>
       </div>
 
-      <div className="relative grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,.9fr)] lg:items-center">
+      <div className="relative grid gap-5 p-5 sm:p-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,.9fr)] 2xl:items-center">
         <div className="flex items-center gap-4 sm:gap-5">
           <div className="relative grid h-[84px] w-[84px] shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(#54df91 ${percent * 3.6}deg, rgba(148,163,184,.13) ${percent * 3.6}deg 360deg)` }} aria-label={`${percent}% complete`}>
             <div className="grid h-[68px] w-[68px] place-items-center rounded-full border border-white/[0.04] bg-[#101923] text-[18px] font-bold tabular-nums text-white">{loaded ? `${percent}%` : '—'}</div>
