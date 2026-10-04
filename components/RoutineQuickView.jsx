@@ -60,11 +60,36 @@ export default function RoutineQuickView({ userId }) {
       }
     };
     window.addEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    let midnightTimer;
+    const refreshNow = () => setNow(new Date());
+    const scheduleMidnightRefresh = () => {
+      const current = new Date();
+      const nextMidnight = new Date(current);
+      nextMidnight.setHours(24, 0, 0, 0);
+      midnightTimer = window.setTimeout(() => {
+        refreshNow();
+        scheduleMidnightRefresh();
+      }, nextMidnight.getTime() - current.getTime());
+    };
+    const refreshAfterWake = () => {
+      refreshNow();
+      window.clearTimeout(midnightTimer);
+      scheduleMidnightRefresh();
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshAfterWake();
+    };
+    const timer = window.setInterval(refreshNow, 15_000);
+    scheduleMidnightRefresh();
+    window.addEventListener('focus', refreshAfterWake);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       mounted = false;
       window.removeEventListener(preferencesUpdatedEvent, onPreferenceUpdate);
       window.clearInterval(timer);
+      window.clearTimeout(midnightTimer);
+      window.removeEventListener('focus', refreshAfterWake);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [pathname, refresh]);
 
@@ -76,21 +101,47 @@ export default function RoutineQuickView({ userId }) {
   const completedCount = todayTasks.filter((task) => completed.some((id) => String(id) === String(task.id))).length;
   const percent = todayTasks.length ? Math.round((completedCount / todayTasks.length) * 100) : 0;
   const nextTask = todayTasks.find((task) => !completed.some((id) => String(id) === String(task.id)) && task.time >= `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
-  const visibleTasks = [...todayTasks]
-    .sort((a, b) => {
-      const aDoneIndex = completed.findIndex((id) => String(id) === String(a.id));
-      const bDoneIndex = completed.findIndex((id) => String(id) === String(b.id));
-      const aDone = aDoneIndex >= 0;
-      const bDone = bDoneIndex >= 0;
-      if (aDone !== bDone) return aDone ? -1 : 1;
-      return b.time.localeCompare(a.time);
-    })
-    .slice(0, 5);
+  const visibleTasks = nextTask
+    ? todayTasks.filter((task) => String(task.id) !== String(nextTask.id))
+    : todayTasks;
+
+  useEffect(() => {
+    if (!loaded) return;
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const dueIds = todayTasks.filter((task) => task.time <= currentTime).map((task) => task.id);
+    if (!dueIds.length) return;
+
+    const newlyCompleted = dueIds.filter((id) => !completed.some((doneId) => String(doneId) === String(id)));
+    const newlyAutoDone = dueIds.filter((id) => (
+      !completed.some((doneId) => String(doneId) === String(id))
+      && !automaticallyCompleted.some((doneId) => String(doneId) === String(id))
+    ));
+    if (!newlyCompleted.length && !newlyAutoDone.length) return;
+
+    const nextDone = newlyCompleted.length
+      ? { ...done, [todayKey]: [...completed, ...newlyCompleted] }
+      : done;
+    const nextAutoDone = newlyAutoDone.length
+      ? { ...autoDone, [todayKey]: [...automaticallyCompleted, ...newlyAutoDone] }
+      : autoDone;
+    const updates = {};
+    if (newlyCompleted.length) {
+      setDone(nextDone);
+      updates['routine-done'] = nextDone;
+    }
+    if (newlyAutoDone.length) {
+      setAutoDone(nextAutoDone);
+      updates['routine-auto-done'] = nextAutoDone;
+    }
+    writePreferences(updates).catch((saveError) => setError(saveError.message));
+  }, [autoDone, automaticallyCompleted, completed, done, loaded, now, todayKey, todayTasks]);
 
   function toggleTask(taskId) {
-    if (automaticallyCompleted.some((id) => String(id) === String(taskId))) return;
-    const existing = done[todayKey] || [];
-    const isDone = existing.some((id) => String(id) === String(taskId));
+    const isDone = completed.some((id) => String(id) === String(taskId));
+    const task = todayTasks.find((item) => String(item.id) === String(taskId));
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (automaticallyCompleted.some((id) => String(id) === String(taskId)) || (isDone && task && task.time <= currentTime)) return;
+    const existing = completed;
     const nextDone = isDone
       ? existing.filter((id) => String(id) !== String(taskId))
       : [...existing, taskId];
@@ -134,7 +185,23 @@ export default function RoutineQuickView({ userId }) {
         <div className="rounded-xl border border-sky-300/15 bg-gradient-to-r from-sky-400/[0.07] to-transparent p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[.15em] text-sky-200"><span className="h-1.5 w-1.5 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(104,181,255,.8)]" /> Up next</span>
-            {nextTask && <time className="whitespace-nowrap font-mono text-[11px] font-semibold tabular-nums text-sky-100">{formatTime12Hour(nextTask.time)}</time>}
+            {nextTask && (
+              <div className="flex items-center gap-2">
+                <time className="whitespace-nowrap font-mono text-[11px] font-semibold tabular-nums text-sky-100">{formatTime12Hour(nextTask.time)}</time>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked="false"
+                  aria-label={`Mark complete: ${nextTask.title}`}
+                  title="Mark this task complete"
+                  disabled={automaticallyCompleted.some((id) => String(id) === String(nextTask.id))}
+                  onClick={() => toggleTask(nextTask.id)}
+                  className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border border-slate-500/70 bg-black/10 text-transparent transition hover:border-emerald-300/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed"
+                >
+                  <LuCheck className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="mt-1.5 truncate text-[14px] font-semibold text-white">{nextTask?.title || (completedCount === todayTasks.length && todayTasks.length ? 'All done for today' : 'No upcoming routines')}</div>
           <div className="mt-1 truncate text-[10px] text-muted">{nextTask ? `${nextTask.cat || 'Routine'}${nextTask.note ? ` · ${nextTask.note}` : ''}` : 'Open your routine to review the day.'}</div>
@@ -154,11 +221,11 @@ export default function RoutineQuickView({ userId }) {
               <LuChevronRight className="h-3.5 w-3.5 shrink-0 text-muted/40 transition group-hover:translate-x-0.5 group-hover:text-emerald-200" />
             </button>
           );
-        }) : <p className="py-5 text-center text-[11px] text-muted">No routines are scheduled for today.</p>}
+        }) : <p className="py-5 text-center text-[11px] text-muted">{todayTasks.length ? 'Your next task is shown above.' : 'No routines are scheduled for today.'}</p>}
       </div>
 
       <div className="relative flex items-center justify-between gap-3 border-t border-white/[0.06] bg-black/[0.08] px-5 py-3 sm:px-6">
-        <span className="text-[10px] text-muted">{Math.min(visibleTasks.length, 5)} of {todayTasks.length} routines shown · Tap a row to update progress</span>
+        <span className="text-[10px] text-muted">{visibleTasks.length} of {todayTasks.length} routines shown · {nextTask ? 'Next task appears above' : 'Tap a row to update progress'}</span>
         <Link href="/daily-routine" className="text-[10px] font-semibold text-emerald-200/90 hover:text-emerald-100">Open routine →</Link>
       </div>
     </section>
