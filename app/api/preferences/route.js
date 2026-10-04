@@ -15,6 +15,7 @@ const allowedKeys = new Set([
   'reminder-settings',
   'reminder-acknowledged',
   'trading-plan-checklist',
+  'trading-plan-layout',
   'economic-news-order',
 ]);
 const routinePreferenceKeys = [

@@ -69,8 +69,29 @@ img, video, iframe, svg {
   animation: mistake-memory-fade-in 360ms ease-out both;
 }
 
+@keyframes split-view-gradient-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.split-view-launch {
+  background: linear-gradient(110deg, #15191d 0%, #392b17 36%, #12372e 68%, #11181d 100%);
+  background-size: 230% 230%;
+  animation: split-view-gradient-drift 16s ease-in-out infinite;
+}
+
+.split-view-launch-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(90deg, #000, transparent 82%);
+  opacity: 0.28;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .mistake-memory-enter {
+  .mistake-memory-enter,
+  .split-view-launch {
     animation: none;
   }
 }

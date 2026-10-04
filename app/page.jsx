@@ -11,6 +11,7 @@ import RoutineQuickView from '@/components/RoutineQuickView';
 import MindsetDisciplinePreview from '@/components/MindsetDisciplinePreview';
 import { getSession } from '@/lib/auth';
 import DashboardTabs from '@/components/DashboardTabs';
+import { LuArrowUpRight } from 'react-icons/lu';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,8 +45,30 @@ export default async function Dashboard() {
         </div>
       </header>
 
+      <a href="/trading-dashboard-split-view.html" className="split-view-launch group relative isolate block overflow-hidden rounded-xl border border-white/[0.09] px-4 py-4 shadow-lg shadow-black/10 transition duration-200 hover:-translate-y-0.5 hover:border-amber-300/30 hover:shadow-xl hover:shadow-black/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300 sm:px-5">
+        <span className="split-view-launch-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.19em] text-amber-300">Trading Command Center <span className="mx-1 text-white/20">/</span> Dual view</p>
+            <h2 className="mt-1 text-base font-semibold text-white">Plan with both monitors in view</h2>
+            <p className="mt-1 text-[12px] text-slate-400">Trading Plan Monitor and Mistake Monitor, side by side.</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2 text-[9px] font-semibold tracking-wide text-slate-300 sm:flex" aria-hidden="true">
+              <span>TRADING PLAN</span><span className="h-4 w-px bg-amber-300/60" /><span>MISTAKE MONITOR</span>
+            </div>
+            <span className="inline-flex h-9 items-center gap-2 rounded-lg border border-amber-300/25 bg-amber-300/[0.08] px-3 text-[11px] font-semibold text-amber-100 transition group-hover:bg-amber-300/[0.14]">
+              <span>Open split view</span><LuArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+      </a>
+
       <MindsetDisciplinePreview />
-      <RoutineQuickView userId={session?.user.id} />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <RoutineQuickView userId={session?.user.id} />
+        <TodayTasks />
+      </div>
 
       {/* Row 1 */}
       <div className="grid gap-4 xl:grid-cols-2">
@@ -61,10 +84,6 @@ export default async function Dashboard() {
         <EconomicNewsCard initialNews={economicNews} compact />
 
       </div>
-
-      <Panel title="Today" icon="🗓">
-        <TodayTasks />
-      </Panel>
 
       {/* Row 3 */}
       <div className="grid gap-4 xl:grid-cols-4">

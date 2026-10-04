@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080a0e">
+<title>Trading Plan Monitor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body{height:100%;min-height:100%;margin:0;background:#080a0e;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#e2e8f0}
+  body{overflow:hidden}
+  .glass{background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.085);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+  #ambient{background:radial-gradient(ellipse at 10% 0%,rgba(180,112,24,.13),transparent 42%),radial-gradient(ellipse at 100% 100%,rgba(16,185,129,.06),transparent 35%)}
+  .fade{animation:fade .45s ease both}
+  .pulse{animation:pulse 1.7s ease-in-out infinite}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+  .monitor-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;flex:1;min-height:0}
+  .checklist-scroll{min-height:0;overflow:auto;scrollbar-color:rgba(148,163,184,.25) transparent;scrollbar-width:thin}
+  .group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:10px}
+  .check-dot{display:grid;place-items:center;width:19px;height:19px;flex:none;border:1px solid rgba(148,163,184,.45);border-radius:6px;color:#10140e;font-size:12px;cursor:pointer;transition:background .16s,border-color .16s,box-shadow .16s}
+  .check-dot:hover{border-color:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.1)}
+  .check-dot:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  .check-dot.done{border-color:#fbbf24;background:#fbbf24}
+  .priority-high{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.08);color:#fca5a5}
+  .priority-medium{border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07);color:#fcd34d}
+  .priority-other{border-color:rgba(255,255,255,.09);background:rgba(255,255,255,.035);color:#94a3b8}
+  #calendar-dialog{width:min(96vw,1600px);height:min(94dvh,1200px);max-width:none;max-height:none;margin:auto;padding:0;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#080a0e;color:#e2e8f0;box-shadow:0 28px 100px rgba(0,0,0,.65)}
+  #calendar-dialog::backdrop{background:rgba(0,0,0,.8);backdrop-filter:blur(8px)}
+  .calendar-dialog-scroll{min-height:0;overflow:auto;background:#05070c;scrollbar-color:rgba(148,163,184,.25) transparent;scrollbar-width:thin}
+  #calendar-dialog-image{display:block;height:auto;max-width:none;margin:0 auto}
+  .calendar-opacity-wrap{display:flex;align-items:center;gap:8px;margin-top:10px;padding:0 1px}
+  .calendar-opacity-label{flex-shrink:0;color:#94a3b8;font-size:8px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+  .calendar-opacity-slider{width:100%;accent-color:#fbbf24}
+  .calendar-opacity-value{flex-shrink:0;color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;font-variant-numeric:tabular-nums}
+  @media(max-width:900px){
+    body{overflow:auto}
+    .monitor-shell{height:auto!important;min-height:100dvh}
+    .monitor-grid{grid-template-columns:1fr;flex:none}
+    .checklist-scroll{overflow:visible}
+    .side-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));align-items:start}
+  }
+  @media(max-width:600px){
+    .monitor-shell{padding:10px!important;gap:10px!important}
+    .clock-card{min-width:90px}
+    .event-row{grid-template-columns:50px minmax(0,1fr)!important}
+    .event-row .priority{grid-column:2;justify-self:start}
+  }
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="ambient" class="pointer-events-none fixed inset-0" aria-hidden="true"></div>
+<div class="monitor-shell relative flex h-[100dvh] flex-col gap-3 p-3 sm:gap-4 sm:p-5">
+  <header class="glass fade flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 sm:px-5">
+    <div class="flex min-w-0 items-center gap-3">
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-amber-300/30 bg-amber-300/10 font-mono text-sm font-bold text-amber-300" aria-hidden="true">TP</span>
+      <div class="min-w-0"><h1 class="truncate text-sm font-bold tracking-[.17em] text-white sm:text-base">TRADING PLAN MONITOR</h1><p class="mt-0.5 text-[10px] tracking-wide text-slate-500">READ THE DAY. RESPECT THE PLAN.</p></div>
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <div class="clock-card glass min-w-[100px] rounded-lg px-3 py-1.5 text-center"><div class="text-[8px] font-semibold tracking-[.16em] text-slate-500">SESSION</div><div id="session-clock" class="font-mono text-sm tabular-nums text-amber-300">00:00:00</div></div>
+      <div class="clock-card glass min-w-[100px] rounded-lg px-3 py-1.5 text-center"><div class="text-[8px] font-semibold tracking-[.16em] text-slate-500">NEW YORK</div><div id="new-york-clock" class="font-mono text-sm tabular-nums text-white">--:--:--</div></div>
+      <button id="fullscreen" type="button" class="glass grid h-10 w-10 place-items-center rounded-lg text-lg text-slate-200 transition hover:bg-white/10" title="Toggle fullscreen" aria-label="Toggle fullscreen">⛶</button>
+      <a href="/trading-plan-builder.html" class="glass flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white" title="Customize Trading Plan sections"><span aria-hidden="true">⚙</span><span class="hidden sm:inline">Customize</span></a>
+      <a href="/trading-plan" class="glass flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white" title="Return to Trading Plan editor"><span aria-hidden="true">←</span><span class="hidden sm:inline">Back to plan</span></a>
+    </div>
+  </header>
+
+  <section class="glass fade shrink-0 rounded-xl border-amber-400/20 bg-[linear-gradient(105deg,rgba(120,74,14,.17),rgba(16,20,27,.78)_55%,rgba(15,23,22,.7))] px-4 py-3 sm:px-5" aria-labelledby="briefing-title">
+    <div class="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+      <div class="flex min-w-0 items-center gap-3"><span class="pulse h-2 w-2 shrink-0 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,.55)]" aria-hidden="true"></span><div class="min-w-0"><p class="text-[9px] font-extrabold tracking-[.2em] text-amber-300">PRE-MARKET BRIEFING</p><h2 id="briefing-title" class="mt-0.5 text-sm font-semibold text-white sm:text-base">Before you trade, read the day.</h2></div></div>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div><div class="text-[8px] font-semibold tracking-[.15em] text-slate-500">TODAY · NEW YORK</div><div id="today-label" class="mt-0.5 text-xs text-slate-200">Loading date…</div></div>
+        <div class="hidden h-8 w-px bg-white/10 sm:block" aria-hidden="true"></div>
+        <div><div class="text-[8px] font-semibold tracking-[.15em] text-slate-500">PLAN PROGRESS</div><div id="progress-label" class="mt-0.5 text-xs font-semibold tabular-nums text-white">— / — checked</div></div>
+        <div><div class="text-[8px] font-semibold tracking-[.15em] text-slate-500">TODAY’S EVENTS</div><div id="event-count" class="mt-0.5 text-xs font-semibold tabular-nums text-white">— scheduled</div></div>
+      </div>
+    </div>
+    <div class="mt-3 h-1 overflow-hidden rounded-full bg-white/[.07]"><div id="progress-bar" class="h-full w-0 rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-[width] duration-500"></div></div>
+  </section>
+
+  <main class="monitor-grid min-h-0">
+    <section class="glass fade flex min-h-0 flex-col overflow-hidden rounded-2xl p-3 sm:p-4" aria-labelledby="checklist-title">
+      <div class="mb-3 flex shrink-0 flex-wrap items-end justify-between gap-2 border-b border-white/[.07] px-1 pb-3"><div><p class="text-[9px] font-bold tracking-[.2em] text-amber-300">YOUR RULES. YOUR EDGE.</p><h2 id="checklist-title" class="mt-1 text-lg font-bold text-white">Trading checklist</h2></div><p id="must-pass-label" class="text-[10px] text-slate-500">Must-pass checks: —</p></div>
+      <div id="checklist-groups" class="checklist-scroll flex-1 pr-1" aria-live="polite"><p class="py-8 text-center text-sm text-slate-500">Loading your saved checklist…</p></div>
+    </section>
+
+    <aside class="side-stack flex min-h-0 flex-col gap-3">
+      <section class="glass fade flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl p-4" aria-labelledby="events-title">
+        <div class="mb-3 flex shrink-0 items-start justify-between gap-3"><div><p class="text-[9px] font-bold tracking-[.19em] text-amber-300">SCHEDULE WATCH</p><h2 id="events-title" class="mt-1 text-sm font-semibold text-white">Major events today</h2></div><span class="text-lg text-amber-300" aria-hidden="true">◷</span></div>
+        <div id="events-list" class="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1" aria-live="polite"><p class="py-5 text-center text-xs text-slate-500">Loading saved events…</p></div>
+      </section>
+
+      <section class="glass fade rounded-2xl p-4" aria-labelledby="conditions-title">
+        <div class="mb-2 flex items-start justify-between gap-3"><div><p class="text-[9px] font-bold tracking-[.19em] text-emerald-300">CONDITIONS TO ASSESS</p><h2 id="conditions-title" class="mt-1 text-sm font-semibold text-white">Market context</h2></div><span class="text-base text-emerald-300" aria-hidden="true">⌁</span></div>
+        <ul class="grid grid-cols-2 gap-x-3">
+          <li class="border-t border-white/[.06] py-2.5"><span class="block text-[10px] font-medium text-slate-200">Trend &amp; bias</span><span class="mt-1 block text-[8px] tracking-wide text-slate-500">TO REVIEW</span></li>
+          <li class="border-t border-white/[.06] py-2.5"><span class="block text-[10px] font-medium text-slate-200">Volatility</span><span class="mt-1 block text-[8px] tracking-wide text-slate-500">TO REVIEW</span></li>
+          <li class="border-t border-white/[.06] py-2.5"><span class="block text-[10px] font-medium text-slate-200">Key levels</span><span class="mt-1 block text-[8px] tracking-wide text-slate-500">TO REVIEW</span></li>
+          <li class="border-t border-white/[.06] py-2.5"><span class="block text-[10px] font-medium text-slate-200">Risk limit</span><span class="mt-1 block text-[8px] tracking-wide text-slate-500">TO REVIEW</span></li>
+        </ul>
+      </section>
+
+      <figure id="calendar-card" class="glass hidden overflow-hidden rounded-xl p-2.5">
+        <figcaption class="mb-2 flex items-center justify-between gap-2 px-1">
+          <button id="calendar-open" type="button" class="flex min-h-9 items-center gap-2 rounded-lg px-2 text-left text-[10px] font-bold tracking-[.15em] text-slate-300 transition hover:bg-white/[.04] hover:text-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300" aria-haspopup="dialog" aria-controls="calendar-dialog">WEEKLY CALENDAR <span class="text-amber-300" aria-hidden="true">⛶</span></button>
+          <span class="text-[8px] text-slate-600">Tap to expand</span>
+        </figcaption>
+        <button id="calendar-image-open" type="button" class="group relative block w-full overflow-hidden rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300" aria-label="Open weekly calendar full page" aria-haspopup="dialog" aria-controls="calendar-dialog">
+          <img id="calendar-image" alt="Saved economic calendar" class="max-h-28 w-full rounded-lg object-cover object-top opacity-80 transition group-hover:opacity-100">
+          <span class="absolute inset-0 grid place-items-center bg-black/0 text-lg text-white opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100" aria-hidden="true">⛶</span>
+        </button>
+        <div class="calendar-opacity-wrap" aria-label="Weekly calendar opacity control">
+          <label for="calendar-opacity" class="calendar-opacity-label">Opacity</label>
+          <input id="calendar-opacity" class="calendar-opacity-slider" type="range" min="20" max="100" value="80" aria-label="Weekly calendar opacity">
+          <span id="calendar-opacity-value" class="calendar-opacity-value">80%</span>
+        </div>
+      </figure>
+    </aside>
+  </main>
+
+  <footer class="glass fade flex shrink-0 items-center justify-between gap-3 rounded-lg px-4 py-2"><p id="status" role="status" class="min-w-0 truncate text-[10px] text-slate-500">Live view · saved checklist and events</p><p class="shrink-0 text-[9px] font-semibold tracking-[.14em] text-amber-300/70">PAUSE · READ · EXECUTE</p></footer>
+</div>
+
+<dialog id="calendar-dialog" aria-labelledby="calendar-dialog-title">
+  <div class="flex h-full min-h-0 flex-col">
+    <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[.08] bg-[#0d1117] px-3 py-2.5 sm:px-5">
+      <div class="min-w-0"><p class="text-[9px] font-bold tracking-[.18em] text-amber-300">WEEKLY CALENDAR</p><h2 id="calendar-dialog-title" class="mt-0.5 truncate text-sm font-semibold text-white">Economic calendar</h2></div>
+      <div class="flex items-center gap-1.5">
+        <button id="calendar-zoom-out" type="button" class="grid h-10 w-10 place-items-center rounded-lg border border-white/[.1] text-lg text-slate-200 transition hover:bg-white/[.06] disabled:cursor-not-allowed disabled:opacity-35" aria-label="Zoom out" title="Zoom out">−</button>
+        <span id="calendar-zoom-label" class="w-12 text-center font-mono text-[11px] tabular-nums text-slate-300">100%</span>
+        <button id="calendar-zoom-in" type="button" class="grid h-10 w-10 place-items-center rounded-lg border border-white/[.1] text-lg text-slate-200 transition hover:bg-white/[.06] disabled:cursor-not-allowed disabled:opacity-35" aria-label="Zoom in" title="Zoom in">+</button>
+        <button id="calendar-zoom-reset" type="button" class="ml-1 rounded-lg border border-white/[.1] px-3 py-2 text-[10px] text-slate-300 transition hover:bg-white/[.06]">Reset</button>
+        <button id="calendar-close" type="button" class="ml-1 grid h-10 w-10 place-items-center rounded-lg border border-white/[.1] text-lg text-slate-300 transition hover:bg-white/[.06] hover:text-white" aria-label="Close calendar" title="Close calendar">×</button>
+      </div>
+    </header>
+    <p id="calendar-dialog-error" role="status" class="hidden shrink-0 border-b border-loss/20 bg-loss/10 px-4 py-2 text-xs text-loss">The calendar image could not be loaded.</p>
+    <div class="calendar-dialog-scroll min-h-0 flex-1 p-2 sm:p-4"><img id="calendar-dialog-image" alt="Weekly economic calendar" class="rounded-md" style="width:100%"></div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  const byId = (id) => document.getElementById(id);
+  const startedAt = Date.now();
+  let currentChecklist = null;
+  let saveTimer = null;
+  let saveQueue = Promise.resolve();
+  let calendarZoom = 1;
+  let previousBodyOverflow = '';
+  const calendarOpacityStorageKey = 'trading-plan-calendar-opacity';
+  const calendarOpacity = { image: byId('calendar-image'), dialog: byId('calendar-dialog-image'), input: byId('calendar-opacity'), value: byId('calendar-opacity-value') };
+  const defaultGroups = [
+    { id: 'pre-market', title: 'Pre-market', rules: [
+      { title: 'Review economic calendar and news', requirement: 'Optional' },
+      { title: 'Mark key levels and higher-timeframe trend', requirement: 'Must pass' },
+      { title: 'Define bias and the only setups I trade today', requirement: 'Must pass' },
+      { title: 'Confirm daily loss limit is set', requirement: 'Must pass' },
+      { title: 'Write the one thing I must execute well', requirement: 'Must pass' },
+    ] },
+    { id: 'entry-criteria', title: 'Entry criteria', rules: [
+      { title: 'Setup matches my written plan', requirement: 'Must pass' },
+      { title: 'Trend and momentum confirm the direction', requirement: 'Optional' },
+      { title: 'Entry trigger has printed, no anticipating', requirement: 'Must pass' },
+      { title: 'Risk-to-reward is at least 2:1', requirement: 'Must pass' },
+    ] },
+    { id: 'review', title: 'Review', rules: [
+      { title: 'Journal the trade with a screenshot', requirement: 'Must pass' },
+      { title: 'Record one lesson without judging the outcome', requirement: 'Optional' },
+    ] },
+  ];
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+  }
+
+  function newYorkParts(date) {
+    return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+      .formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+  }
+
+  function requirementFor(rule) {
+    return rule.requirement || (rule.required ? 'Must pass' : 'Optional');
+  }
+
+  function renderChecklist(saved) {
+    const groups = Array.isArray(saved?.groups) ? saved.groups : defaultGroups;
+    currentChecklist = { ...(saved || {}), groups };
+    const rules = groups.flatMap((group) => Array.isArray(group.rules) ? group.rules : []);
+    const complete = rules.filter((rule) => rule.done).length;
+    const mustPass = rules.filter((rule) => requirementFor(rule) === 'Must pass');
+    const passed = mustPass.filter((rule) => rule.done).length;
+    byId('progress-label').textContent = `${complete} / ${rules.length} checked`;
+    byId('progress-bar').style.width = `${rules.length ? Math.round(complete / rules.length * 100) : 0}%`;
+    byId('must-pass-label').textContent = `Must-pass checks: ${passed} / ${mustPass.length}`;
+    byId('checklist-groups').innerHTML = groups.length ? `<div class="group-grid">${groups.map((group) => {
+      const items = Array.isArray(group.rules) ? group.rules : [];
+      const done = items.filter((rule) => rule.done).length;
+      return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3" aria-label="${escapeHtml(group.title)} checklist section"><header class="mb-2 flex items-center justify-between gap-2 border-b border-white/[.06] pb-2"><h3 class="min-w-0 break-words text-xs font-bold text-slate-200">${escapeHtml(group.title)}</h3><span class="shrink-0 rounded-full bg-white/[.05] px-2 py-1 font-mono text-[9px] tabular-nums text-slate-400">${done}/${items.length}</span></header><ul class="divide-y divide-white/[.045]">${items.map((rule) => `<li class="flex min-w-0 items-start gap-2.5 py-2.5 last:pb-1"><button type="button" role="checkbox" aria-checked="${Boolean(rule.done)}" aria-label="${rule.done ? 'Uncheck' : 'Check'} ${escapeHtml(rule.title)}" data-group-id="${escapeHtml(group.id)}" data-rule-id="${escapeHtml(rule.id)}" class="check-dot ${rule.done ? 'done' : ''}">${rule.done ? '✓' : ''}</button><span class="min-w-0 flex-1 break-words text-[11px] leading-relaxed ${rule.done ? 'text-slate-500 line-through' : 'text-slate-200'}">${escapeHtml(rule.title)}</span><span class="shrink-0 pt-1 text-[8px] uppercase tracking-wide ${requirementFor(rule) === 'Must pass' ? 'text-amber-300' : 'text-slate-600'}">${escapeHtml(requirementFor(rule))}</span></li>`).join('')}</ul></section>`;
+    }).join('')}</div>` : '<p class="py-8 text-center text-sm text-slate-500">No checklist sections have been added.</p>';
+  }
+
+  function toggleRule(groupId, ruleId) {
+    if (!currentChecklist) return;
+    currentChecklist = {
+      ...currentChecklist,
+      groups: currentChecklist.groups.map((group) => group.id !== groupId ? group : {
+        ...group,
+        rules: group.rules.map((rule) => rule.id === ruleId ? { ...rule, done: !rule.done } : rule),
+      }),
+    };
+    renderChecklist(currentChecklist);
+    scheduleChecklistSave();
+  }
+
+  function scheduleChecklistSave() {
+    window.clearTimeout(saveTimer);
+    byId('status').textContent = 'Saving checklist…';
+    saveTimer = window.setTimeout(() => {
+      const snapshot = currentChecklist;
+      saveQueue = saveQueue.catch(() => {}).then(async () => {
+        const response = await fetch('/api/preferences', {
+          method: 'PUT',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: { 'trading-plan-checklist': snapshot } }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not save checklist changes.');
+        if (currentChecklist === snapshot) byId('status').textContent = 'Checklist saved';
+      }).catch((error) => {
+        byId('status').textContent = `Checklist save failed: ${error.message}`;
+      });
+    }, 180);
+  }
+
+  function formatEventTime(value) {
+    if (!value || typeof value !== 'string' || !value.includes('T')) return 'TBD';
+    const date = new Date(`${value.slice(0, 16)}:00Z`);
+    return Number.isNaN(date.getTime()) ? 'TBD' : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  }
+
+  function renderEvents(news) {
+    const parts = newYorkParts(new Date());
+    const today = `${parts.year}-${parts.month}-${parts.day}`;
+    const events = news.filter((item) => {
+      const value = item.event_at ?? item.eventAt ?? '';
+      return typeof value === 'string' && value.slice(0, 10) === today;
+    }).sort((first, second) => (first.event_at ?? first.eventAt ?? '').localeCompare(second.event_at ?? second.eventAt ?? ''));
+    byId('event-count').textContent = `${events.length.toString().padStart(2, '0')} scheduled`;
+    byId('events-list').innerHTML = events.length ? events.map((item) => {
+      const priority = item.priority === 'High' ? 'priority-high' : item.priority === 'Medium' ? 'priority-medium' : 'priority-other';
+      return `<article class="event-row grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-white/[.05] bg-white/[.025] px-2.5 py-2.5"><time class="font-mono text-[10px] tabular-nums text-slate-400">${formatEventTime(item.event_at ?? item.eventAt)}</time><span class="min-w-0 break-words text-[11px] leading-relaxed text-slate-200">${escapeHtml(item.title)}</span><span class="priority rounded border px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide ${priority}">${escapeHtml(item.priority || 'Scheduled')}</span></article>`;
+    }).join('') : '<div class="rounded-lg border border-dashed border-white/[.08] px-3 py-5 text-center"><p class="text-xs text-slate-300">No saved events today.</p><p class="mt-1 text-[10px] text-slate-600">Scheduled news will appear here.</p></div>';
+  }
+
+  async function loadData() {
+    try {
+      const responses = await Promise.all([
+        fetch('/api/preferences?keys=trading-plan-checklist', { cache: 'no-store' }),
+        fetch('/api/economic-news', { cache: 'no-store' }),
+        fetch('/api/calendar-screenshot', { cache: 'no-store' }),
+      ]);
+      const [preferences, news, calendar] = await Promise.all(responses.map((response) => response.json()));
+      const failed = responses.find((response) => !response.ok);
+      if (failed) throw new Error(preferences.error || news.error || calendar.error || 'Sign in to load your trading plan.');
+      renderChecklist(preferences.values?.['trading-plan-checklist']);
+      renderEvents(Array.isArray(news) ? news : []);
+      if (calendar.image_url) {
+        byId('calendar-image').src = calendar.image_url;
+        byId('calendar-dialog-image').src = calendar.image_url;
+        byId('calendar-card').classList.remove('hidden');
+        setCalendarOpacity(byId('calendar-opacity').value);
+      }
+      byId('status').textContent = 'Live view · saved checklist and events';
+    } catch (error) {
+      byId('checklist-groups').innerHTML = `<div class="rounded-lg border border-red-400/20 bg-red-400/[.06] p-4 text-center"><p class="text-sm text-red-200">${escapeHtml(error.message)}</p><a href="/login?next=%2Ftrading-plan-monitor.html" class="mt-2 inline-block text-xs text-amber-300 underline underline-offset-2">Sign in to continue</a></div>`;
+      byId('events-list').innerHTML = '<p class="py-4 text-center text-xs text-slate-500">Event data unavailable.</p>';
+      byId('status').textContent = 'Could not load saved trading data';
+    }
+  }
+
+  function updateClocks() {
+    const now = new Date();
+    byId('new-york-clock').textContent = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now);
+    byId('today-label').textContent = now.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const pad = (number) => String(number).padStart(2, '0');
+    byId('session-clock').textContent = `${pad(Math.floor(elapsed / 3600))}:${pad(Math.floor(elapsed / 60) % 60)}:${pad(elapsed % 60)}`;
+  }
+
+  function setCalendarZoom(value) {
+    calendarZoom = Math.max(0.5, Math.min(3, value));
+    byId('calendar-dialog-image').style.width = `${calendarZoom * 100}%`;
+    byId('calendar-zoom-label').textContent = `${Math.round(calendarZoom * 100)}%`;
+    byId('calendar-zoom-out').disabled = calendarZoom <= 0.5;
+    byId('calendar-zoom-in').disabled = calendarZoom >= 3;
+  }
+
+  function setCalendarOpacity(value) {
+    const percent = Math.max(20, Math.min(100, Number(value) || 80));
+    calendarOpacity.image.style.opacity = String(percent / 100);
+    calendarOpacity.dialog.style.opacity = '1';
+    calendarOpacity.input.value = String(percent);
+    calendarOpacity.value.textContent = `${percent}%`;
+    try {
+      window.localStorage.setItem(calendarOpacityStorageKey, String(percent));
+    } catch {}
+  }
+
+  function openCalendar() {
+    const image = byId('calendar-image');
+    if (!image.src) return;
+    byId('calendar-dialog-image').src = image.currentSrc || image.src;
+    byId('calendar-dialog-error').classList.add('hidden');
+    setCalendarZoom(1);
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    byId('calendar-dialog').showModal();
+    byId('calendar-close').focus();
+  }
+
+  function closeCalendar() {
+    const dialog = byId('calendar-dialog');
+    if (dialog.open) dialog.close();
+  }
+
+  byId('fullscreen').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  });
+  byId('calendar-open').addEventListener('click', openCalendar);
+  byId('calendar-image-open').addEventListener('click', openCalendar);
+  byId('calendar-close').addEventListener('click', closeCalendar);
+  byId('calendar-opacity').addEventListener('input', (event) => setCalendarOpacity(event.target.value));
+  try {
+    const savedOpacity = window.localStorage.getItem(calendarOpacityStorageKey);
+    if (savedOpacity !== null) setCalendarOpacity(savedOpacity);
+  } catch {}
+  byId('calendar-zoom-out').addEventListener('click', () => setCalendarZoom(calendarZoom - 0.25));
+  byId('calendar-zoom-in').addEventListener('click', () => setCalendarZoom(calendarZoom + 0.25));
+  byId('calendar-zoom-reset').addEventListener('click', () => setCalendarZoom(1));
+  byId('calendar-dialog-image').addEventListener('error', () => byId('calendar-dialog-error').classList.remove('hidden'));
+  byId('calendar-dialog').addEventListener('click', (event) => { if (event.target === byId('calendar-dialog')) closeCalendar(); });
+  byId('calendar-dialog').addEventListener('close', () => {
+    document.body.style.overflow = previousBodyOverflow;
+    byId('calendar-open').focus();
+  });
+  byId('checklist-groups').addEventListener('click', (event) => {
+    const checkbox = event.target.closest('button[data-group-id][data-rule-id]');
+    if (checkbox) toggleRule(checkbox.dataset.groupId, checkbox.dataset.ruleId);
+  });
+  updateClocks();
+  window.setInterval(updateClocks, 1000);
+  loadData();
+  window.addEventListener('focus', loadData);
+})();
+</script>
+</body>
+</html>

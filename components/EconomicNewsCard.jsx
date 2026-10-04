@@ -97,7 +97,7 @@ async function readResponse(response) {
   }
 }
 
-export default function EconomicNewsCard({ initialNews = [], compact = false }) {
+export default function EconomicNewsCard({ initialNews = [], compact = false, sectionTitle = 'Economic news' }) {
   const confirm = useConfirmDialog();
   const [news, setNews] = useState(initialNews);
   const [title, setTitle] = useState('');
@@ -272,7 +272,7 @@ export default function EconomicNewsCard({ initialNews = [], compact = false }) 
   return (
     <section className="panel">
       <header className="panel-head">
-        <h2 className="panel-title"><span aria-hidden>📰</span> Economic news</h2>
+        <h2 className="panel-title"><span aria-hidden>📰</span> {sectionTitle}</h2>
         {!compact && <span className="text-[12px] text-muted">Manual events</span>}
       </header>
       {compact && (

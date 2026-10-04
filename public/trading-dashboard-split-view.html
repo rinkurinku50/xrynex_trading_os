@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080a0e">
+<title>Trading Dashboard · Split View</title>
+<style>
+  :root{color-scheme:dark;--shell:#080a0e;--line:rgba(255,255,255,.09);--text:#e2e8f0;--muted:#94a3b8;--amber:#fbbf24;--mint:#34d399}
+  *{box-sizing:border-box}
+  html,body{width:100%;height:100%;min-height:100%;margin:0;overflow:hidden;background:var(--shell);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .shell{height:100dvh;display:flex;flex-direction:column;background:radial-gradient(ellipse at 50% 0,rgba(251,191,36,.08),transparent 38%),#080a0e}
+  .topbar{position:relative;z-index:2;display:flex;min-height:64px;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px;padding:8px 16px;border-bottom:1px solid var(--line);background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012));box-shadow:0 8px 30px rgba(0,0,0,.18)}
+  .brand{display:flex;min-width:0;align-items:center;gap:11px}
+  .brand-mark{display:grid;width:34px;height:34px;flex:none;place-items:center;border:1px solid rgba(251,191,36,.28);border-radius:9px;background:rgba(251,191,36,.08);color:var(--amber);font-size:11px;font-weight:800;letter-spacing:.06em}
+  .brand-title{overflow:hidden;color:#fff;font-size:11px;font-weight:800;letter-spacing:.16em;text-overflow:ellipsis;white-space:nowrap}
+  .brand-subtitle{margin-top:3px;color:#64748b;font-size:9px;letter-spacing:.08em}
+  .header-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px 14px}
+  .clock-strip{display:flex;align-items:center;gap:2px}
+  .header-clock{min-width:80px;padding:2px 10px;text-align:center}
+  .header-clock+.header-clock{border-left:1px solid rgba(255,255,255,.08)}
+  .header-clock-label{color:#64748b;font-size:8px;font-weight:700;letter-spacing:.13em}
+  .header-clock-value{margin-top:3px;color:#e2e8f0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .header-clock.session .header-clock-value{color:var(--amber)}
+  .toolbar{display:flex;flex:none;align-items:center;gap:9px}
+  .split-meter{min-width:116px;text-align:center}
+  .split-label{margin-bottom:3px;color:#64748b;font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+  .split-value{color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-variant-numeric:tabular-nums}
+  .split-value strong{color:var(--amber);font-weight:700}
+  .tool-button{display:inline-flex;height:34px;align-items:center;justify-content:center;gap:7px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.035);padding:0 11px;color:#cbd5e1;font-family:inherit;font-size:10px;font-weight:600;line-height:1;cursor:pointer;transition:background .16s,border-color .16s,color .16s}
+  .tool-button:hover{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:#fff}
+  .tool-button:focus-visible,.mobile-tab:focus-visible,.divider:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .mobile-tabs{display:none;flex:none;gap:6px;padding:8px;border-bottom:1px solid var(--line);background:#0b0f14}
+  .mobile-tab{min-width:0;flex:1;border:1px solid transparent;border-radius:7px;background:transparent;padding:9px 8px;color:#8491a1;font-family:inherit;font-size:9px;font-weight:700;line-height:1.2;letter-spacing:.05em;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;cursor:pointer}
+  .mobile-tab[aria-selected="true"]{border-color:rgba(251,191,36,.28);background:rgba(251,191,36,.08);color:#fcd34d}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 8px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}
+  .pane{position:relative;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-color:rgba(148,163,184,.25) transparent;scrollbar-width:thin;background:#080a0e}
+  .pane::-webkit-scrollbar{width:6px}
+  .pane::-webkit-scrollbar-track{background:transparent}
+  .pane::-webkit-scrollbar-thumb{border-radius:6px;background:rgba(148,163,184,.24)}
+  .pane iframe{display:block;width:100%;height:100%;min-height:1200px;border:0;background:#080a0e}
+  .pane-label{position:absolute;top:8px;left:9px;z-index:1;pointer-events:none;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(7,10,14,.72);padding:4px 7px;color:rgba(226,232,240,.7);font-size:8px;font-weight:700;letter-spacing:.1em;opacity:0;backdrop-filter:blur(8px);transition:opacity .18s}
+  .pane:hover .pane-label{opacity:1}
+  .divider{appearance:none;position:relative;z-index:3;display:grid;width:8px;min-width:8px;padding:0;place-items:center;border:0;border-right:1px solid rgba(255,255,255,.055);border-left:1px solid rgba(255,255,255,.055);background:linear-gradient(90deg,#11161c,#1a2027 50%,#11161c);cursor:col-resize;touch-action:none;transition:background .16s,box-shadow .16s}
+  .divider::before{position:absolute;width:2px;height:40px;border-radius:4px;background:linear-gradient(180deg,rgba(148,163,184,.28),rgba(251,191,36,.8),rgba(148,163,184,.28));content:"";transition:height .16s,box-shadow .16s}
+  .divider:hover,.divider.dragging{background:linear-gradient(90deg,#191d22,#2a2417 50%,#191d22);box-shadow:0 0 22px rgba(251,191,36,.14)}
+  .divider:hover::before,.divider.dragging::before{height:62px;box-shadow:0 0 12px rgba(251,191,36,.5)}
+  .grip{position:relative;width:3px;height:17px;background:radial-gradient(circle,#fcd34d 1px,transparent 1.4px);background-size:3px 5px;opacity:.74}
+  body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
+  @media(max-width:980px){
+    .topbar{min-height:58px;padding:7px 10px}
+    .brand-mark{width:30px;height:30px}
+    .brand-subtitle{display:none}
+    .header-tools{flex:1;justify-content:space-between}
+    .clock-strip{flex:1;justify-content:flex-start}
+    .header-clock{min-width:70px;padding:2px 7px}
+    .split-meter{min-width:92px}
+    .tool-button{height:32px;padding:0 9px}
+  }
+  @media(max-width:760px){
+    .mobile-tabs{display:flex}
+    .workspace{display:block;position:relative}
+    .pane{position:absolute;inset:0;display:none}
+    .pane.active{display:block}
+    .divider{display:none}
+    .pane-label{opacity:1}
+  }
+  @media(max-width:560px){.topbar{gap:7px;padding:7px}.brand-title{max-width:185px;font-size:9px}.header-tools{flex-basis:100%;justify-content:space-between}.clock-strip{min-width:0;justify-content:space-between}.header-clock{min-width:0;flex:1;padding:2px 4px}.header-clock-label{font-size:7px}.header-clock-value{font-size:10px}.toolbar{gap:5px}.split-meter{min-width:72px}.split-label{font-size:7px}.split-value{font-size:9px}.tool-button{font-size:9px;padding:0 7px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">X / X</span>
+      <div class="min-w-0">
+        <div class="brand-title">TRADING PLAN MONITOR <span aria-hidden="true">·</span> MISTAKE MONITOR</div>
+        <div class="brand-subtitle">DUAL-MONITOR TRADING WORKSPACE</div>
+      </div>
+    </div>
+    <div class="header-tools">
+      <div class="clock-strip" aria-label="Session and market times">
+        <div class="header-clock session"><div class="header-clock-label">SESSION</div><div id="main-session-clock" class="header-clock-value">00:00:00</div></div>
+        <div class="header-clock"><div class="header-clock-label">INDIA</div><div id="main-india-clock" class="header-clock-value">--:--:--</div></div>
+        <div class="header-clock"><div class="header-clock-label">NEW YORK</div><div id="main-new-york-clock" class="header-clock-value">--:--:--</div></div>
+      </div>
+      <div class="toolbar">
+        <div class="split-meter" aria-live="polite"><div class="split-label">Panel balance</div><div id="split-value" class="split-value"><strong>50%</strong> / 50%</div></div>
+        <button id="reset-split" class="tool-button" type="button" title="Reset panel widths to equal" aria-label="Reset panel widths to equal"><span aria-hidden="true">↔</span><span class="reset-label">Reset</span></button>
+        <button id="main-fullscreen" class="tool-button" type="button" title="Toggle dashboard fullscreen" aria-label="Toggle dashboard fullscreen">⛶</button>
+        <a href="/trading-plan" class="tool-button back-to-plan" title="Return to Trading Plan">← <span>Back to Plan</span></a>
+      </div>
+    </div>
+  </header>
+
+  <nav class="mobile-tabs" role="tablist" aria-label="Trading dashboard panels">
+    <button class="mobile-tab" type="button" role="tab" id="plan-tab" aria-selected="true" aria-controls="plan-pane" data-pane="plan-pane">TRADING PLAN</button>
+    <button class="mobile-tab" type="button" role="tab" id="mistake-tab" aria-selected="false" aria-controls="mistake-pane" data-pane="mistake-pane">MISTAKE MONITOR</button>
+  </nav>
+
+  <main id="workspace" class="workspace" aria-label="Trading dashboard split view">
+    <section id="plan-pane" class="pane active" aria-label="Trading Plan Monitor">
+      <span class="pane-label">TRADING PLAN MONITOR</span>
+      <iframe id="plan-frame" src="/trading-plan-monitor.html" title="Trading Plan Monitor" loading="eager" allow="fullscreen" referrerpolicy="same-origin"></iframe>
+    </section>
+    <button id="divider" class="divider" type="button" role="separator" aria-label="Resize dashboard panels" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50" aria-valuetext="Trading Plan 50 percent, Mistake Monitor 50 percent" tabindex="0"><span class="grip" aria-hidden="true"></span></button>
+    <section id="mistake-pane" class="pane" aria-label="Mistake Monitor">
+      <span class="pane-label">MISTAKE MONITOR</span>
+      <iframe id="mistake-frame" src="/mistake-monitor.html" title="Mistake Monitor" loading="eager" allow="fullscreen" referrerpolicy="same-origin"></iframe>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  'use strict';
+  const workspace = document.getElementById('workspace');
+  const divider = document.getElementById('divider');
+  const value = document.getElementById('split-value');
+  const reset = document.getElementById('reset-split');
+  const planFrame = document.getElementById('plan-frame');
+  const mistakeFrame = document.getElementById('mistake-frame');
+  const mobileTabs = [...document.querySelectorAll('.mobile-tab')];
+  const sessionStartedAt = Date.now();
+  let split = 0.5;
+  let dragPointer = null;
+
+  const frameStyles = [
+    {
+      frame: planFrame,
+      id: 'split-plan-layout-style',
+      selector: '.monitor-shell > header',
+      css: `.monitor-shell > header{display:none!important}html,body{height:auto!important;min-height:100%!important;overflow-x:hidden!important;overflow-y:auto!important}.monitor-shell{height:auto!important;min-height:100dvh!important;overflow:visible!important}.monitor-grid{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important;align-content:start!important;flex:none!important;min-height:0!important}.side-stack{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start!important;min-width:0!important}.side-stack>*{min-width:0!important}.side-stack>:nth-child(3){grid-column:1/-1!important}.event-row{grid-template-columns:54px minmax(0,1fr) auto!important}#calendar-card{align-self:start!important}#calendar-image-open{height:auto!important}#calendar-image{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:top center!important}@media(max-width:620px){.side-stack{grid-template-columns:minmax(0,1fr)!important}.side-stack>:nth-child(3){grid-column:auto!important}.event-row{grid-template-columns:48px minmax(0,1fr)!important}.event-row .priority{grid-column:2;justify-self:start}}`,
+    },
+    {
+      frame: mistakeFrame,
+      id: 'split-mistake-layout-style',
+      selector: 'body > div.relative > header',
+      css: 'body>div.relative>header{display:none!important}',
+    },
+  ];
+
+  function fitPlanFrame() {
+    try {
+      const doc = planFrame.contentDocument;
+      if (!doc?.documentElement || !doc.body) return;
+      const contentHeight = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      const frameHeight = Math.max(1200, contentHeight);
+      if (Math.abs(planFrame.getBoundingClientRect().height - frameHeight) > 2) {
+        planFrame.style.height = `${frameHeight}px`;
+      }
+    } catch {
+      // Ignore frames that are not ready or not accessible.
+    }
+  }
+
+  function applyFrameLayout({ frame, id, selector, css }) {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc?.head) return;
+      if (doc.getElementById(id)) return;
+      const style = doc.createElement('style');
+      style.id = id;
+      style.textContent = css;
+      doc.head.appendChild(style);
+      const duplicateHeader = doc.querySelector(selector);
+      if (duplicateHeader) duplicateHeader.style.display = 'none';
+      if (frame === planFrame) {
+        const ResizeObserverInFrame = doc.defaultView?.ResizeObserver;
+        if (ResizeObserverInFrame) {
+          const observer = new ResizeObserverInFrame(() => window.requestAnimationFrame(fitPlanFrame));
+          observer.observe(doc.documentElement);
+        }
+        doc.defaultView?.addEventListener('resize', fitPlanFrame);
+        doc.getElementById('calendar-image')?.addEventListener('load', fitPlanFrame);
+        window.requestAnimationFrame(fitPlanFrame);
+      }
+    } catch {
+      // Same-origin frames allow styling; leave the source view intact if access is unavailable.
+    }
+  }
+
+  frameStyles.forEach((settings) => {
+    settings.frame.addEventListener('load', () => applyFrameLayout(settings));
+    if (settings.frame.contentDocument?.readyState === 'complete') applyFrameLayout(settings);
+  });
+
+  function updateHeaderClocks() {
+    const now = new Date();
+    const time = (zone) => new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+    }).format(now);
+    const elapsed = Math.floor((Date.now() - sessionStartedAt) / 1000);
+    const pad = (number) => String(number).padStart(2, '0');
+    document.getElementById('main-session-clock').textContent = `${pad(Math.floor(elapsed / 3600))}:${pad(Math.floor(elapsed / 60) % 60)}:${pad(elapsed % 60)}`;
+    document.getElementById('main-india-clock').textContent = time('Asia/Kolkata');
+    document.getElementById('main-new-york-clock').textContent = time('America/New_York');
+  }
+
+  function renderSplit() {
+    const dividerSize = divider.offsetWidth;
+    const available = Math.max(0, workspace.clientWidth - dividerSize);
+    const left = Math.round(available * split);
+    const right = Math.max(0, available - left);
+    workspace.style.gridTemplateColumns = `${left}px ${dividerSize}px ${right}px`;
+    const percent = Math.round(split * 100);
+    const other = 100 - percent;
+    value.innerHTML = `<strong>${percent}%</strong> / ${other}%`;
+    divider.setAttribute('aria-valuenow', String(percent));
+    divider.setAttribute('aria-valuetext', `Trading Plan ${percent} percent, Mistake Monitor ${other} percent`);
+  }
+
+  function setSplitFromPointer(clientX) {
+    const bounds = workspace.getBoundingClientRect();
+    const available = Math.max(1, bounds.width - divider.offsetWidth);
+    split = Math.max(0.25, Math.min(0.75, (clientX - bounds.left) / available));
+    renderSplit();
+  }
+
+  divider.addEventListener('pointerdown', (event) => {
+    if (window.matchMedia('(max-width: 760px)').matches) return;
+    event.preventDefault();
+    dragPointer = event.pointerId;
+    divider.classList.add('dragging');
+    document.body.classList.add('resizing');
+    divider.setPointerCapture(event.pointerId);
+  });
+  divider.addEventListener('pointermove', (event) => {
+    if (dragPointer !== event.pointerId) return;
+    setSplitFromPointer(event.clientX);
+  });
+  function finishDrag(event) {
+    if (dragPointer !== event.pointerId) return;
+    dragPointer = null;
+    divider.classList.remove('dragging');
+    document.body.classList.remove('resizing');
+    if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId);
+  }
+  divider.addEventListener('pointerup', finishDrag);
+  divider.addEventListener('pointercancel', finishDrag);
+  divider.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 0.05 : 0.02;
+    if (event.key === 'ArrowLeft') split = Math.max(0.25, split - step);
+    else if (event.key === 'ArrowRight') split = Math.min(0.75, split + step);
+    else if (event.key === 'Home') split = 0.25;
+    else if (event.key === 'End') split = 0.75;
+    else return;
+    event.preventDefault();
+    renderSplit();
+  });
+  reset.addEventListener('click', () => { split = 0.5; renderSplit(); });
+  document.getElementById('main-fullscreen').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  });
+  mobileTabs.forEach((tab) => tab.addEventListener('click', () => {
+    const paneId = tab.dataset.pane;
+    mobileTabs.forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+    document.querySelectorAll('.pane').forEach((pane) => pane.classList.toggle('active', pane.id === paneId));
+  }));
+  window.addEventListener('resize', renderSplit);
+  updateHeaderClocks();
+  window.setInterval(updateHeaderClocks, 1000);
+  renderSplit();
+})();
+</script>
+</body>
+</html>
