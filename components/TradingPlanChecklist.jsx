@@ -23,6 +23,8 @@ export default function TradingPlanChecklist() {
   const [newGroupTitle, setNewGroupTitle] = useState('');
   const [newRequirementValue, setNewRequirementValue] = useState('');
   const [editingRequirement, setEditingRequirement] = useState(null);
+  const [editingRule, setEditingRule] = useState(null);
+  const [editedRuleTitle, setEditedRuleTitle] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draggedGroup, setDraggedGroup] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
@@ -104,6 +106,40 @@ export default function TradingPlanChecklist() {
       ...group,
       rules: [...group.rules, { id: `${groupId}-${Date.now()}`, title: cleanTitle, requirement, required: requirement === 'Must pass' }],
     }));
+  }
+
+  function editRule(groupId, rule) {
+    setEditingRule({ groupId, ruleId: rule.id });
+    setEditedRuleTitle(rule.title);
+  }
+
+  function saveRule(event) {
+    event.preventDefault();
+    const title = editedRuleTitle.trim();
+    if (!title || !editingRule) return;
+    setGroups((current) => current.map((group) => group.id !== editingRule.groupId ? group : {
+      ...group,
+      rules: group.rules.map((rule) => rule.id === editingRule.ruleId ? { ...rule, title } : rule),
+    }));
+    setEditingRule(null);
+    setEditedRuleTitle('');
+  }
+
+  async function removeRule(groupId, rule) {
+    const accepted = await confirm({
+      title: 'Delete checklist item?',
+      message: `“${rule.title}” will be permanently removed.`,
+      confirmLabel: 'Delete item',
+    });
+    if (!accepted) return;
+    setGroups((current) => current.map((group) => group.id !== groupId ? group : {
+      ...group,
+      rules: group.rules.filter((item) => item.id !== rule.id),
+    }));
+    if (editingRule?.groupId === groupId && editingRule.ruleId === rule.id) {
+      setEditingRule(null);
+      setEditedRuleTitle('');
+    }
   }
 
   async function removeGroup(groupId) {
@@ -334,7 +370,17 @@ export default function TradingPlanChecklist() {
                           >
                             <LuCheck className="h-4 w-4" strokeWidth={3} aria-hidden />
                           </button>
-                          <span className={`min-w-0 flex-1 text-[13px] ${rule.done ? 'text-muted line-through' : 'text-text'}`}>{rule.title}</span>
+                          {editingRule?.groupId === group.id && editingRule.ruleId === rule.id ? (
+                            <form className="flex min-w-0 flex-1 flex-wrap items-center gap-2" onSubmit={saveRule}>
+                              <input className="field min-w-0 flex-1" value={editedRuleTitle} onChange={(event) => setEditedRuleTitle(event.target.value)} aria-label={`Edit ${rule.title}`} maxLength={120} autoFocus />
+                              <button type="submit" className="btn py-1 text-[12px]">Save</button>
+                              <button type="button" className="btn py-1 text-[12px]" onClick={() => { setEditingRule(null); setEditedRuleTitle(''); }}>Cancel</button>
+                            </form>
+                          ) : <span className={`min-w-0 flex-1 text-[13px] ${rule.done ? 'text-muted line-through' : 'text-text'}`}>{rule.title}</span>}
+                          {!rule.done && !(editingRule?.groupId === group.id && editingRule.ruleId === rule.id) && <div className="flex shrink-0 items-center gap-1">
+                            <button type="button" className="rounded-md p-1.5 text-muted hover:bg-panel2 hover:text-info" aria-label={`Edit ${rule.title}`} title={`Edit ${rule.title}`} onClick={() => editRule(group.id, rule)}><LuPencil className="h-4 w-4" aria-hidden /></button>
+                            <button type="button" className="rounded-md p-1.5 text-muted hover:bg-panel2 hover:text-loss" aria-label={`Delete ${rule.title}`} title={`Delete ${rule.title}`} onClick={() => removeRule(group.id, rule)}><LuTrash2 className="h-4 w-4" aria-hidden /></button>
+                          </div>}
                           <SelectMenu
                             value={requirementFor(rule)}
                             options={requirements}
