@@ -50,6 +50,7 @@
 (() => {
   'use strict';
   const byId = (id) => document.getElementById(id);
+  const layoutSavedKey = 'xrynex-trading-plan-layout-saved';
   const defaultLayout = {
     sections: [
       { id: 'checklist', type: 'checklist', title: 'Trading Checklist', enabled: true, subsections: [{ id: 'pre-market', title: 'Pre-Market', enabled: true }, { id: 'entry-criteria', title: 'Entry Criteria', enabled: true }, { id: 'review', title: 'Review', enabled: true }] },
@@ -175,6 +176,9 @@
         dirty = false;
         byId('save-status').textContent = 'All changes saved';
         byId('save-button').disabled = true;
+        try {
+          window.localStorage.setItem(layoutSavedKey, String(Date.now()));
+        } catch {}
       } else {
         byId('save-status').textContent = 'Saving latest changes…';
         saveTimer = window.setTimeout(saveNow, 50);

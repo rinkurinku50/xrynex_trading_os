@@ -80,18 +80,18 @@
   </section>
 
   <main class="monitor-grid min-h-0">
-    <section class="glass fade flex min-h-0 flex-col overflow-hidden rounded-2xl p-3 sm:p-4" aria-labelledby="checklist-title">
+    <section id="checklist-card" class="glass fade flex min-h-0 flex-col overflow-hidden rounded-2xl p-3 sm:p-4" aria-labelledby="checklist-title">
       <div class="mb-3 flex shrink-0 flex-wrap items-end justify-between gap-2 border-b border-white/[.07] px-1 pb-3"><div><p class="text-[9px] font-bold tracking-[.2em] text-amber-300">YOUR RULES. YOUR EDGE.</p><h2 id="checklist-title" class="mt-1 text-lg font-bold text-white">Trading checklist</h2></div><p id="must-pass-label" class="text-[10px] text-slate-500">Must-pass checks: —</p></div>
       <div id="checklist-groups" class="checklist-scroll flex-1 pr-1" aria-live="polite"><p class="py-8 text-center text-sm text-slate-500">Loading your saved checklist…</p></div>
     </section>
 
     <aside class="side-stack flex min-h-0 flex-col gap-3">
-      <section class="glass fade flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl p-4" aria-labelledby="events-title">
+      <section id="scheduler-card" class="glass fade flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl p-4" aria-labelledby="events-title">
         <div class="mb-3 flex shrink-0 items-start justify-between gap-3"><div><p class="text-[9px] font-bold tracking-[.19em] text-amber-300">SCHEDULE WATCH</p><h2 id="events-title" class="mt-1 text-sm font-semibold text-white">Major events today</h2></div><span class="text-lg text-amber-300" aria-hidden="true">◷</span></div>
         <div id="events-list" class="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1" aria-live="polite"><p class="py-5 text-center text-xs text-slate-500">Loading saved events…</p></div>
       </section>
 
-      <section class="glass fade rounded-2xl p-4" aria-labelledby="conditions-title">
+      <section id="conditions-card" class="glass fade rounded-2xl p-4" aria-labelledby="conditions-title">
         <div class="mb-2 flex items-start justify-between gap-3"><div><p class="text-[9px] font-bold tracking-[.19em] text-emerald-300">CONDITIONS TO ASSESS</p><h2 id="conditions-title" class="mt-1 text-sm font-semibold text-white">Market context</h2></div><span class="text-base text-emerald-300" aria-hidden="true">⌁</span></div>
         <ul class="grid grid-cols-2 gap-x-3">
           <li class="border-t border-white/[.06] py-2.5"><span class="block text-[10px] font-medium text-slate-200">Trend &amp; bias</span><span class="mt-1 block text-[8px] tracking-wide text-slate-500">TO REVIEW</span></li>
@@ -149,6 +149,7 @@
   let saveQueue = Promise.resolve();
   let calendarZoom = 1;
   let previousBodyOverflow = '';
+  let currentLayout = null;
   const calendarOpacityStorageKey = 'trading-plan-calendar-opacity';
   const calendarOpacity = { image: byId('calendar-image'), dialog: byId('calendar-dialog-image'), input: byId('calendar-opacity'), value: byId('calendar-opacity-value') };
   const defaultGroups = [
@@ -187,18 +188,38 @@
   function renderChecklist(saved) {
     const groups = Array.isArray(saved?.groups) ? saved.groups : defaultGroups;
     currentChecklist = { ...(saved || {}), groups };
-    const rules = groups.flatMap((group) => Array.isArray(group.rules) ? group.rules : []);
+    const checklistSection = currentLayout?.sections?.find((section) => section.type === 'checklist');
+    const configuredSubsections = checklistSection?.subsections || [];
+    const enabledSubsectionIds = new Set(configuredSubsections.filter((subsection) => subsection.enabled !== false).map((subsection) => subsection.id));
+    const visibleGroups = configuredSubsections.length
+      ? groups.filter((group) => enabledSubsectionIds.has(group.id))
+      : groups;
+    const rules = visibleGroups.flatMap((group) => Array.isArray(group.rules) ? group.rules : []);
     const complete = rules.filter((rule) => rule.done).length;
     const mustPass = rules.filter((rule) => requirementFor(rule) === 'Must pass');
     const passed = mustPass.filter((rule) => rule.done).length;
     byId('progress-label').textContent = `${complete} / ${rules.length} checked`;
     byId('progress-bar').style.width = `${rules.length ? Math.round(complete / rules.length * 100) : 0}%`;
     byId('must-pass-label').textContent = `Must-pass checks: ${passed} / ${mustPass.length}`;
-    byId('checklist-groups').innerHTML = groups.length ? `<div class="group-grid">${groups.map((group) => {
+    byId('checklist-groups').innerHTML = visibleGroups.length ? `<div class="group-grid">${visibleGroups.map((group) => {
       const items = Array.isArray(group.rules) ? group.rules : [];
       const done = items.filter((rule) => rule.done).length;
       return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3" aria-label="${escapeHtml(group.title)} checklist section"><header class="mb-2 flex items-center justify-between gap-2 border-b border-white/[.06] pb-2"><h3 class="min-w-0 break-words text-xs font-bold text-slate-200">${escapeHtml(group.title)}</h3><span class="shrink-0 rounded-full bg-white/[.05] px-2 py-1 font-mono text-[9px] tabular-nums text-slate-400">${done}/${items.length}</span></header><ul class="divide-y divide-white/[.045]">${items.map((rule) => `<li class="flex min-w-0 items-start gap-2.5 py-2.5 last:pb-1"><button type="button" role="checkbox" aria-checked="${Boolean(rule.done)}" aria-label="${rule.done ? 'Uncheck' : 'Check'} ${escapeHtml(rule.title)}" data-group-id="${escapeHtml(group.id)}" data-rule-id="${escapeHtml(rule.id)}" class="check-dot ${rule.done ? 'done' : ''}">${rule.done ? '✓' : ''}</button><span class="min-w-0 flex-1 break-words text-[11px] leading-relaxed ${rule.done ? 'text-slate-500 line-through' : 'text-slate-200'}">${escapeHtml(rule.title)}</span><span class="shrink-0 pt-1 text-[8px] uppercase tracking-wide ${requirementFor(rule) === 'Must pass' ? 'text-amber-300' : 'text-slate-600'}">${escapeHtml(requirementFor(rule))}</span></li>`).join('')}</ul></section>`;
     }).join('')}</div>` : '<p class="py-8 text-center text-sm text-slate-500">No checklist sections have been added.</p>';
+  }
+
+  function applyPlanLayout(layout) {
+    if (!Array.isArray(layout?.sections)) return;
+    currentLayout = layout;
+    const checklistSection = layout.sections.find((section) => section.type === 'checklist');
+    const checklistSubsections = checklistSection?.subsections || [];
+    const checklistHasVisibleContent = !checklistSubsections.length || checklistSubsections.some((subsection) => subsection.enabled !== false);
+    byId('checklist-card').classList.toggle('hidden', !checklistSection || checklistSection.enabled === false || !checklistHasVisibleContent);
+    byId('scheduler-card').classList.toggle('hidden', !layout.sections.some((section) => section.type === 'scheduler' && section.enabled !== false));
+    byId('conditions-card').classList.toggle('hidden', !layout.sections.some((section) => section.type === 'conditions' && section.enabled !== false));
+    const calendarSection = layout.sections.find((section) => section.type === 'weekly-calendar');
+    if (!calendarSection || calendarSection.enabled === false) byId('calendar-card').classList.add('hidden');
+    renderChecklist(currentChecklist);
   }
 
   function toggleRule(groupId, ruleId) {
@@ -258,7 +279,7 @@
   async function loadData() {
     try {
       const responses = await Promise.all([
-        fetch('/api/preferences?keys=trading-plan-checklist', { cache: 'no-store' }),
+        fetch('/api/preferences?keys=trading-plan-checklist,trading-plan-layout', { cache: 'no-store' }),
         fetch('/api/economic-news', { cache: 'no-store' }),
         fetch('/api/calendar-screenshot', { cache: 'no-store' }),
       ]);
@@ -273,6 +294,7 @@
         byId('calendar-card').classList.remove('hidden');
         setCalendarOpacity(byId('calendar-opacity').value);
       }
+      applyPlanLayout(preferences.values?.['trading-plan-layout']);
       byId('status').textContent = 'Live view · saved checklist and events';
     } catch (error) {
       byId('checklist-groups').innerHTML = `<div class="rounded-lg border border-red-400/20 bg-red-400/[.06] p-4 text-center"><p class="text-sm text-red-200">${escapeHtml(error.message)}</p><a href="/login?next=%2Ftrading-plan-monitor.html" class="mt-2 inline-block text-xs text-amber-300 underline underline-offset-2">Sign in to continue</a></div>`;
