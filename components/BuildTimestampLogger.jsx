@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
-
-let hasLoggedBuildTimestamp = false;
+import { useEffect, useRef } from 'react';
 
 export default function BuildTimestampLogger() {
+  const hasLoggedBuildTimestamp = useRef(false);
+
   useEffect(() => {
-    if (hasLoggedBuildTimestamp) return;
-    hasLoggedBuildTimestamp = true;
+    if (hasLoggedBuildTimestamp.current) return;
+    hasLoggedBuildTimestamp.current = true;
 
     const timestamp = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'UTC',
+      timeZone: 'Asia/Kolkata',
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
