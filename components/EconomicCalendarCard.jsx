@@ -25,6 +25,20 @@ function weekLabel() {
   return `${monday.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' })} – ${sunday.toLocaleDateString('en-US', { ...options, year: 'numeric', timeZone: 'UTC' })}`;
 }
 
+async function readResponseJson(response) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (!response.ok) {
+      throw new Error(response.status === 504
+        ? 'Calendar scan timed out on the server. Please try again.'
+        : `Calendar request failed (HTTP ${response.status}). Please try again.`);
+    }
+    throw new Error('The calendar service returned an invalid response. Please try again.');
+  }
+}
+
 export default function EconomicCalendarCard({ initialUrl = '', initialOpacity = 15, initialNews = [], title = 'This week’s economic calendar', showNews = true, initialZoom = 100, imageView = 'fit' }) {
   const confirm = useConfirmDialog();
   const configuredZoom = Number(initialZoom) > 3 ? Number(initialZoom) / 100 : Number(initialZoom);
@@ -91,7 +105,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
         body: JSON.stringify({ image_url: url, overlay_opacity: overlayOpacity, force_scan: true }),
         signal: controller.signal,
       });
-      const data = await response.json();
+      const data = await readResponseJson(response);
       if (!response.ok) throw new Error(data.error || 'Could not save the calendar link.');
       setImageUrl(data.image_url);
       setDraftUrl(data.image_url);
@@ -141,7 +155,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: imageUrl, overlay_opacity: value }),
       });
-      const data = await response.json();
+      const data = await readResponseJson(response);
       if (!response.ok) throw new Error(data.error || 'Could not save overlay opacity.');
       setMessage('Overlay opacity saved.');
     } catch (saveError) {
