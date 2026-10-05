@@ -29,6 +29,18 @@ function getOperationId(request) {
   return /^[a-z0-9_-]{8,80}$/i.test(requestedId ?? '') ? requestedId : randomUUID();
 }
 
+function getOcrDiagnosticCode(error, failedStep) {
+  const message = String(error?.message ?? error ?? '');
+  if (/OCR worker initialization timed out/i.test(message)) return 'OCR_WORKER_START_TIMEOUT';
+  if (/OCR recognition timed out/i.test(message)) return 'OCR_RECOGNITION_TIMEOUT';
+  if (/image (?:host lookup|download) timed out/i.test(message)) return 'IMAGE_DOWNLOAD_TIMEOUT';
+  if (/packaged English OCR model is missing/i.test(message)) return 'OCR_MODEL_MISSING';
+  if (/invalid response/i.test(message)) return 'OCR_RESPONSE_INVALID';
+  if (failedStep?.startsWith('image_')) return 'IMAGE_SOURCE_FAILURE';
+  if (failedStep?.startsWith('ocr_worker')) return 'OCR_WORKER_FAILURE';
+  return 'OCR_PROCESSING_FAILURE';
+}
+
 function respond(operationId, startedAt, status, payload) {
   logOperation(operationId, 'api_response', {
     http_status: status,
@@ -62,6 +74,9 @@ export async function PUT(request) {
   const operationId = getOperationId(request);
   const startedAt = Date.now();
   let stage = 'authentication';
+  let lastOcrStep = null;
+  let firstOcrFailureStep = null;
+  let ocrDiagnosticMessage = null;
   logOperation(operationId, 'save_operation_started');
 
   try {
@@ -124,6 +139,11 @@ export async function PUT(request) {
       logOperation(operationId, 'ocr_request_started');
       extraction = await extractCalendarEvents(driveImage(imageUrl, 'w1600') || imageUrl, {
         onStage: (event, details) => {
+          lastOcrStep = event;
+          if (!firstOcrFailureStep && /failed|missing|invalid/.test(event)) {
+            firstOcrFailureStep = event;
+            ocrDiagnosticMessage = details.error ? safeErrorMessage(details.error) : event;
+          }
           const safeDetails = {
             ...details,
             ...(details.error ? { error: safeErrorMessage(details.error) } : {}),
@@ -229,11 +249,15 @@ export async function PUT(request) {
   } catch (error) {
     const errorMessage = safeErrorMessage(error);
     const isOcrFailure = stage === 'ocr' || stage === 'ocr_validation';
+    const failedStep = stage === 'ocr' ? firstOcrFailureStep ?? lastOcrStep : stage;
+    const diagnosticCode = isOcrFailure ? getOcrDiagnosticCode(error, failedStep) : null;
     const userMessage = isOcrFailure
       ? 'OCR Failed: Unable to process the uploaded image. Please try again.'
       : 'Unable to save the calendar. Please try again.';
     logOperation(operationId, 'save_operation_failed', {
       failed_stage: stage,
+      failed_step: failedStep,
+      diagnostic_code: diagnosticCode,
       duration_ms: Date.now() - startedAt,
       error_name: error?.name ?? 'Error',
       error_code: error?.code ?? null,
@@ -242,6 +266,9 @@ export async function PUT(request) {
     return respond(operationId, startedAt, isOcrFailure ? 422 : 500, {
       error: userMessage,
       failed_stage: stage,
+      failed_step: failedStep,
+      diagnostic_code: diagnosticCode,
+      ...(isOcrFailure ? { diagnostic_message: ocrDiagnosticMessage ?? errorMessage } : {}),
     });
   }
 }

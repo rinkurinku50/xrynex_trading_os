@@ -149,11 +149,16 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
         logCalendarOperation(operationId, 'api_response_error', {
           http_status: response.status,
           failed_stage: data.failed_stage ?? null,
+          failed_step: data.failed_step ?? null,
+          diagnostic_code: data.diagnostic_code ?? null,
+          diagnostic_message: data.diagnostic_message ?? null,
           error_message: data.error ?? 'Request failed.',
         });
         const responseError = new Error(data.error || 'Could not save the calendar link.');
         responseError.httpStatus = response.status;
         responseError.failedStage = data.failed_stage;
+        responseError.failedStep = data.failed_step;
+        responseError.diagnosticCode = data.diagnostic_code;
         throw responseError;
       }
       if (url) {
@@ -223,6 +228,8 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
       logCalendarOperation(operationId, 'save_operation_error', {
         failed_stage: saveError.failedStage
           ?? (saveError.httpStatus === 504 ? 'vercel_function_timeout' : timedOut ? 'client_timeout' : 'request'),
+        failed_step: saveError.failedStep ?? null,
+        diagnostic_code: saveError.diagnosticCode ?? null,
         http_status: saveError.httpStatus ?? null,
         error_name: saveError.name ?? 'Error',
         error_message: saveError.message ?? 'Unknown error',
