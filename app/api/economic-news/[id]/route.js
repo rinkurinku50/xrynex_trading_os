@@ -22,7 +22,7 @@ export async function PATCH(request, { params }) {
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const priority = typeof body.priority === 'string' ? body.priority : 'Medium';
     const eventAt = typeof body.event_at === 'string' ? body.event_at : '';
-    if (!Number.isInteger(id) || !title || !priorities.has(priority) || (eventAt && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(eventAt))) {
+    if (!Number.isInteger(id) || !title || !priorities.has(priority) || (eventAt && !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/.test(eventAt))) {
       return NextResponse.json({ error: 'Enter a valid news name, priority, and New York date/time.' }, { status: 400 });
     }
     const data = { title, priority, eventAt: eventAt || null };

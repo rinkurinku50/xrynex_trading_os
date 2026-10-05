@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['tesseract.js'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'drive.google.com' },

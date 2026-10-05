@@ -86,14 +86,39 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
       const response = await fetch('/api/calendar-screenshot', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_url: url, overlay_opacity: overlayOpacity }),
+        body: JSON.stringify({ image_url: url, overlay_opacity: overlayOpacity, force_scan: true }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not save the calendar link.');
       setImageUrl(data.image_url);
       setDraftUrl(data.image_url);
       setImageFailed(false);
-      setMessage(data.image_url ? 'Calendar image saved.' : 'Calendar image removed.');
+      if (data.scanned_count || data.skipped_count || data.replaced_count || data.events_replaced) {
+        const added = data.created_events?.length ?? 0;
+        const duplicates = data.duplicate_count ?? 0;
+        const replaced = data.replaced_count ?? 0;
+        const unclassified = data.unclassified_count ?? 0;
+        const skipped = data.skipped_count ?? 0;
+        const details = [
+          `${added} added`,
+          replaced ? `${replaced} previous Scheduler events replaced` : '',
+          duplicates ? `${duplicates} already in Scheduler` : '',
+          skipped ? `${skipped} all-day or untimed skipped` : '',
+          unclassified ? `${unclassified} could not be classified` : '',
+        ].filter(Boolean).join('; ');
+        setMessage(`Calendar image saved. ${details}.`);
+        if (data.events_replaced) {
+          window.dispatchEvent(new CustomEvent('economic-news-replaced', {
+            detail: { events: data.created_events ?? [] },
+          }));
+        } else if (added) {
+          window.dispatchEvent(new CustomEvent('economic-news-created', {
+            detail: { events: data.created_events },
+          }));
+        }
+      } else {
+        setMessage(data.image_url ? 'Calendar image saved.' : 'Calendar image removed.');
+      }
       window.dispatchEvent(new Event('calendar-updated'));
     } catch (saveError) {
       setError(saveError.message);
