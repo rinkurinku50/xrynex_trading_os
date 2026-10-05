@@ -18,7 +18,11 @@ const nextConfig = {
   },
   serverExternalPackages: ['tesseract.js', '@tesseract.js-data/eng', 'tesseract.js-core'],
   outputFileTracingIncludes: {
-    '/api/calendar-screenshot': ['./node_modules/tesseract.js-core/**/*'],
+    '/api/calendar-screenshot': [
+      './node_modules/tesseract.js/**/*',
+      './node_modules/tesseract.js-core/**/*',
+      './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**/*',
+    ],
   },
   images: {
     remotePatterns: [
