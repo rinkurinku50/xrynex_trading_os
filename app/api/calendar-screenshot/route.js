@@ -5,6 +5,7 @@ import { driveImage } from '@/lib/drive';
 import { extractCalendarEvents } from '@/lib/calendar-ocr.mjs';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function validImageUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return false;

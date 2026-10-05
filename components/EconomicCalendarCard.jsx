@@ -82,11 +82,14 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
     setSaving(true);
     setError('');
     setMessage('');
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 65_000);
     try {
       const response = await fetch('/api/calendar-screenshot', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: url, overlay_opacity: overlayOpacity, force_scan: true }),
+        signal: controller.signal,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not save the calendar link.');
@@ -121,8 +124,11 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
       }
       window.dispatchEvent(new Event('calendar-updated'));
     } catch (saveError) {
-      setError(saveError.message);
+      setError(saveError.name === 'AbortError'
+        ? 'Calendar scan timed out. Try saving again or use a smaller image.'
+        : saveError.message);
     } finally {
+      window.clearTimeout(timeoutId);
       setSaving(false);
     }
   }
