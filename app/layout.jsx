@@ -10,6 +10,7 @@ import ConfirmDialogProvider from '@/components/ConfirmDialogProvider';
 import ReminderManager from '@/components/ReminderManager';
 import ResponsiveTruncationTooltip from '@/components/ResponsiveTruncationTooltip';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import BuildTimestampLogger from '@/components/BuildTimestampLogger';
 
 export const metadata = {
   title: 'Xrynex Trading OS',
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body className="min-h-screen">
         <ConfirmDialogProvider>
+          <BuildTimestampLogger />
           <ServiceWorkerRegistration />
           {!isAuthPage && session && <ResponsiveTruncationTooltip />}
           {!isAuthPage && session && <ReminderManager userId={session.user.id} />}
