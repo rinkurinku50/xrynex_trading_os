@@ -240,3 +240,9 @@ The Xrynex Trading OS implementation lives in `app/api/auth/sso/exchange/route.j
 2) push this code on master_work branch 
 3) push the same code on master branch
 4) move all new db data to prod data without impacting existing data 
+
+
+only commit
+
+1) commit this code on master_work branch 
+2) commit the same code on master branch

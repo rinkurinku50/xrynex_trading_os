@@ -25,6 +25,13 @@
   .priority-high{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.08);color:#fca5a5}
   .priority-medium{border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07);color:#fcd34d}
   .priority-other{border-color:rgba(255,255,255,.09);background:rgba(255,255,255,.035);color:#94a3b8}
+  .event-priority-dot{width:8px;height:8px;flex:none;border-radius:2px}
+  .event-priority-high{background:#f87171;box-shadow:0 0 8px rgba(248,113,113,.35)}
+  .event-priority-medium{background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,.3)}
+  .event-priority-other{background:#94a3b8}
+  .event-countdown-high{color:#fca5a5}
+  .event-countdown-medium{color:#fcd34d}
+  .event-countdown-other{color:#94a3b8}
   #calendar-dialog{width:min(96vw,1600px);height:min(94dvh,1200px);max-width:none;max-height:none;margin:auto;padding:0;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#080a0e;color:#e2e8f0;box-shadow:0 28px 100px rgba(0,0,0,.65)}
   #calendar-dialog::backdrop{background:rgba(0,0,0,.8);backdrop-filter:blur(8px)}
   .calendar-dialog-scroll{min-height:0;overflow:auto;background:#05070c;scrollbar-color:rgba(148,163,184,.25) transparent;scrollbar-width:thin}
@@ -177,7 +184,7 @@
   }
 
   function newYorkParts(date) {
-    return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+    return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
       .formatToParts(date).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
   }
 
@@ -262,18 +269,59 @@
     return Number.isNaN(date.getTime()) ? 'TBD' : date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
   }
 
+  function formatEventCountdown(value, now = new Date()) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value || '');
+    if (!match) return '';
+    const scheduledAt = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
+    const parts = newYorkParts(now);
+    const currentAt = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour) % 24, Number(parts.minute), Number(parts.second));
+    const seconds = Math.floor((scheduledAt - currentAt) / 1000);
+    if (!Number.isFinite(seconds) || seconds <= 0) return '';
+    const pad = (unit) => String(unit).padStart(2, '0');
+    return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor(seconds % 3600 / 60))}:${pad(seconds % 60)}`;
+  }
+
+  function updateEventCountdowns(now) {
+    document.querySelectorAll('[data-event-countdown]').forEach((element) => {
+      const countdown = formatEventCountdown(element.dataset.eventCountdown, now);
+      const value = element.querySelector('[data-countdown-value]');
+      if (value) value.textContent = countdown;
+      element.classList.toggle('hidden', !countdown);
+      if (countdown) element.setAttribute('aria-label', `Time until event: ${countdown}`);
+    });
+  }
+
   function renderEvents(news) {
     const parts = newYorkParts(new Date());
     const today = `${parts.year}-${parts.month}-${parts.day}`;
     const events = news.filter((item) => {
       const value = item.event_at ?? item.eventAt ?? '';
-      return typeof value === 'string' && value.slice(0, 10) === today;
+      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) && value.slice(0, 10) === today;
     }).sort((first, second) => (first.event_at ?? first.eventAt ?? '').localeCompare(second.event_at ?? second.eventAt ?? ''));
     byId('event-count').textContent = `${events.length.toString().padStart(2, '0')} scheduled`;
-    byId('events-list').innerHTML = events.length ? events.map((item) => {
-      const priority = item.priority === 'High' ? 'priority-high' : item.priority === 'Medium' ? 'priority-medium' : 'priority-other';
-      return `<article class="event-row grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-white/[.05] bg-white/[.025] px-2.5 py-2.5"><time class="font-mono text-[10px] tabular-nums text-slate-400">${formatEventTime(item.event_at ?? item.eventAt)}</time><span class="min-w-0 break-words text-[11px] leading-relaxed text-slate-200">${escapeHtml(item.title)}</span><span class="priority rounded border px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide ${priority}">${escapeHtml(item.priority || 'Scheduled')}</span></article>`;
-    }).join('') : '<div class="rounded-lg border border-dashed border-white/[.08] px-3 py-5 text-center"><p class="text-xs text-slate-300">No saved events today.</p><p class="mt-1 text-[10px] text-slate-600">Scheduled news will appear here.</p></div>';
+    const groups = new Map();
+    for (const item of events) {
+      const value = item.event_at ?? item.eventAt;
+      const time = value.slice(11, 16);
+      if (!groups.has(time)) groups.set(time, []);
+      groups.get(time).push(item);
+    }
+    const dateLabel = new Date(`${today}T00:00:00Z`).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+    });
+    byId('events-list').innerHTML = events.length
+      ? `<section aria-label="${escapeHtml(dateLabel)}"><h3 class="mb-2 text-[10px] font-semibold text-slate-300">${escapeHtml(dateLabel)}</h3><div class="ml-1 border-l border-white/[.1] pl-3">${[...groups.entries()].map(([time, items]) => {
+        const timerPriority = items.some((item) => item.priority === 'High') ? 'high' : items.some((item) => item.priority === 'Medium') ? 'medium' : 'other';
+        const countdownClass = `event-countdown-${timerPriority}`;
+        const eventAt = `${today}T${time}`;
+        const countdown = formatEventCountdown(eventAt);
+        return `<section class="py-1.5" aria-label="${formatEventTime(eventAt)}"><h4 class="mb-1 flex flex-wrap items-center gap-x-2 text-[10px] font-semibold text-slate-300"><span>${formatEventTime(eventAt)}</span><span class="${countdown ? '' : 'hidden'} inline-flex items-center gap-1 font-mono text-[12px] tabular-nums ${countdownClass}" data-event-countdown="${eventAt}" aria-label="Time until event"><span aria-hidden="true">◷</span><span data-countdown-value>${countdown}</span></span></h4><ul class="divide-y divide-white/[.045]">${items.map((item) => {
+        const priority = item.priority === 'High' ? 'priority-high' : item.priority === 'Medium' ? 'priority-medium' : 'priority-other';
+        const marker = item.priority === 'High' ? 'event-priority-high' : item.priority === 'Medium' ? 'event-priority-medium' : 'event-priority-other';
+        return `<li class="flex min-w-0 items-center gap-2 py-2"><span class="event-priority-dot ${marker}" aria-hidden="true"></span><span class="min-w-0 flex-1 break-words text-[11px] leading-relaxed text-slate-200">${escapeHtml(item.title)}</span><span class="priority shrink-0 rounded border px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide ${priority}">${escapeHtml(item.priority || 'Scheduled')}</span></li>`;
+      }).join('')}</ul></section>`;
+      }).join('')}</div></section>`
+      : '<div class="rounded-lg border border-dashed border-white/[.08] px-3 py-5 text-center"><p class="text-xs text-slate-300">No timed events today.</p><p class="mt-1 text-[10px] text-slate-600">Scheduled news will appear here.</p></div>';
   }
 
   async function loadData() {
@@ -305,6 +353,7 @@
 
   function updateClocks() {
     const now = new Date();
+    updateEventCountdowns(now);
     byId('new-york-clock').textContent = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now);
     byId('today-label').textContent = now.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);

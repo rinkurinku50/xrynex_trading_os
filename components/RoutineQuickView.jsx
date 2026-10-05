@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuArrowUpRight, LuCheck, LuChevronRight, LuClock3, LuSparkles } from 'react-icons/lu';
+import { LuArrowUpRight, LuCheck, LuChevronDown, LuChevronRight, LuClock3, LuSparkles } from 'react-icons/lu';
 import { formatTime12Hour } from '@/lib/routine-data';
 import { preferencesUpdatedEvent, readPreferences, writePreferences } from '@/lib/client-preferences';
 
@@ -104,6 +104,8 @@ export default function RoutineQuickView({ userId }) {
   const visibleTasks = nextTask
     ? todayTasks.filter((task) => String(task.id) !== String(nextTask.id))
     : todayTasks;
+  const completedTasks = visibleTasks.filter((task) => completed.some((id) => String(id) === String(task.id)));
+  const activeTasks = visibleTasks.filter((task) => !completed.some((id) => String(id) === String(task.id)));
 
   useEffect(() => {
     if (!loaded) return;
@@ -148,6 +150,21 @@ export default function RoutineQuickView({ userId }) {
     const next = { ...done, [todayKey]: nextDone };
     setDone(next);
     writePreferences({ 'routine-done': next }).catch((saveError) => setError(saveError.message));
+  }
+
+  function renderTask(task) {
+    const isDone = completed.some((id) => String(id) === String(task.id));
+    const isLocked = automaticallyCompleted.some((id) => String(id) === String(task.id));
+    return (
+      <button key={task.id} type="button" disabled={isLocked} className="group flex w-full items-center gap-3 border-b border-white/[0.045] py-2.5 text-left last:border-b-0 disabled:cursor-not-allowed" onClick={() => toggleTask(task.id)} aria-label={`${isDone ? 'Mark incomplete' : 'Mark complete'}: ${task.title}${isLocked ? ' (locked after scheduled time)' : ''}`}>
+        <span className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border transition ${isDone ? 'border-emerald-300/70 bg-emerald-300/90 text-[#0b1710]' : 'border-slate-500/70 bg-black/10 text-transparent group-hover:border-emerald-300/50'}`}><LuCheck className="h-3 w-3" /></span>
+        <time className={`w-[5.25rem] shrink-0 whitespace-nowrap font-mono text-[16px] tabular-nums ${isDone ? 'text-muted/70' : 'text-muted'}`}>{formatTime12Hour(task.time)}</time>
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${categoryColors[task.cat] || 'bg-slate-400'}`} />
+        <span className={`min-w-0 flex-1 truncate text-[17px] ${isDone ? 'text-muted line-through' : 'text-text/90'}`}>{task.title}</span>
+        <span className="hidden text-[12px] text-muted/60 sm:block">{task.cat || 'Routine'}</span>
+        <LuChevronRight className="h-3.5 w-3.5 shrink-0 text-muted/40 transition group-hover:translate-x-0.5 group-hover:text-emerald-200" />
+      </button>
+    );
   }
 
   return (
@@ -209,23 +226,23 @@ export default function RoutineQuickView({ userId }) {
       </div>
 
       <div className="relative border-t border-white/[0.06] px-5 sm:px-6">
-        {visibleTasks.length ? visibleTasks.map((task) => {
-          const isDone = completed.some((id) => String(id) === String(task.id));
-          return (
-            <button key={task.id} type="button" disabled={automaticallyCompleted.some((id) => String(id) === String(task.id))} className="group flex w-full items-center gap-3 border-b border-white/[0.045] py-2.5 text-left last:border-b-0 disabled:cursor-not-allowed" onClick={() => toggleTask(task.id)} aria-label={`${isDone ? 'Mark incomplete' : 'Mark complete'}: ${task.title}${automaticallyCompleted.some((id) => String(id) === String(task.id)) ? ' (locked after scheduled time)' : ''}`}>
-              <span className={`grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md border transition ${isDone ? 'border-emerald-300/70 bg-emerald-300/90 text-[#0b1710]' : 'border-slate-500/70 bg-black/10 text-transparent group-hover:border-emerald-300/50'}`}><LuCheck className="h-3 w-3" /></span>
-              <time className={`w-[5.25rem] shrink-0 whitespace-nowrap font-mono text-[16px] tabular-nums ${isDone ? 'text-muted/70' : 'text-muted'}`}>{formatTime12Hour(task.time)}</time>
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${categoryColors[task.cat] || 'bg-slate-400'}`} />
-              <span className={`min-w-0 flex-1 truncate text-[17px] ${isDone ? 'text-muted line-through' : 'text-text/90'}`}>{task.title}</span>
-              <span className="hidden text-[12px] text-muted/60 sm:block">{task.cat || 'Routine'}</span>
-              <LuChevronRight className="h-3.5 w-3.5 shrink-0 text-muted/40 transition group-hover:translate-x-0.5 group-hover:text-emerald-200" />
-            </button>
-          );
-        }) : <p className="py-5 text-center text-[11px] text-muted">{todayTasks.length ? 'Your next task is shown above.' : 'No routines are scheduled for today.'}</p>}
+        {completedTasks.length > 0 && (
+          <details className="group border-b border-white/[0.045]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3 text-[12px] font-semibold text-muted marker:hidden [&::-webkit-details-marker]:hidden">
+              <span>Completed</span>
+              <span className="flex items-center gap-2">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] px-1 font-mono text-[11px] font-semibold leading-none tabular-nums text-slate-300">{completedTasks.length}</span>
+                <LuChevronDown className="h-4 w-4 text-muted transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+              </span>
+            </summary>
+            <div className="pb-1">{completedTasks.map(renderTask)}</div>
+          </details>
+        )}
+        {activeTasks.length ? activeTasks.map(renderTask) : <p className="py-5 text-center text-[11px] text-muted">{todayTasks.length ? 'Your next task is shown above.' : 'No routines are scheduled for today.'}</p>}
       </div>
 
       <div className="relative flex items-center justify-between gap-3 border-t border-white/[0.06] bg-black/[0.08] px-5 py-3 sm:px-6">
-        <span className="text-[10px] text-muted">{visibleTasks.length} of {todayTasks.length} routines shown · {nextTask ? 'Next task appears above' : 'Tap a row to update progress'}</span>
+        <span className="text-[10px] text-muted">{activeTasks.length} active shown · {completedTasks.length} completed · {nextTask ? 'Next task appears above' : 'Tap a row to update progress'}</span>
         <Link href="/daily-routine" className="text-[10px] font-semibold text-emerald-200/90 hover:text-emerald-100">Open routine →</Link>
       </div>
     </section>

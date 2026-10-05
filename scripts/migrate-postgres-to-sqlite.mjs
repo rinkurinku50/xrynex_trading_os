@@ -53,7 +53,7 @@ try {
     try {
       sourceRows.set(name, await source[name].findMany());
     } catch (error) {
-      if (name === 'userPreference' && error.code === 'P2021') {
+      if (['userPreference', 'dailyRoutine'].includes(name) && error.code === 'P2021') {
         sourceRows.set(name, []);
       } else {
         throw error;
