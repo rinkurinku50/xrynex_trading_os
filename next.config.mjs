@@ -16,7 +16,10 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_TIMESTAMP: getBuildTimestamp(),
   },
-  serverExternalPackages: ['tesseract.js', '@tesseract.js-data/eng'],
+  serverExternalPackages: ['tesseract.js', '@tesseract.js-data/eng', 'tesseract.js-core'],
+  outputFileTracingIncludes: {
+    '/api/calendar-screenshot': ['./node_modules/tesseract.js-core/**/*'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'drive.google.com' },

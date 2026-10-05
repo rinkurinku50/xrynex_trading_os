@@ -25,17 +25,34 @@ function weekLabel() {
   return `${monday.toLocaleDateString('en-US', { ...options, timeZone: 'UTC' })} – ${sunday.toLocaleDateString('en-US', { ...options, year: 'numeric', timeZone: 'UTC' })}`;
 }
 
+function createOperationId() {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `calendar-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function logCalendarOperation(operationId, event, details = {}) {
+  const record = {
+    operation_id: operationId,
+    event,
+    timestamp: new Date().toISOString(),
+    ...details,
+  };
+  const log = /failed|error|timeout/i.test(event) ? console.error : console.info;
+  log('[calendar-screenshot]', JSON.stringify(record));
+}
+
 async function readResponseJson(response) {
   const text = await response.text();
   try {
-    return JSON.parse(text);
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid response object.');
+    return data;
   } catch {
-    if (!response.ok) {
-      throw new Error(response.status === 504
-        ? 'Calendar scan timed out on the server. Please try again.'
-        : `Calendar request failed (HTTP ${response.status}). Please try again.`);
-    }
-    throw new Error('The calendar service returned an invalid response. Please try again.');
+    const error = new Error(response.ok
+      ? 'The calendar service returned an invalid response.'
+      : `Calendar API returned a non-JSON error (HTTP ${response.status}).`);
+    error.httpStatus = response.status;
+    throw error;
   }
 }
 
@@ -96,17 +113,69 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
     setSaving(true);
     setError('');
     setMessage('');
+    const operationId = createOperationId();
+    const operationStartedAt = performance.now();
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 65_000);
+    let timedOut = false;
+    let operationStatus = 'failed';
+    logCalendarOperation(operationId, 'save_operation_started');
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      logCalendarOperation(operationId, 'api_request_timeout', { timeout_ms: 55_000 });
+      controller.abort();
+    }, 55_000);
     try {
+      if (url) {
+        logCalendarOperation(operationId, 'image_upload_started', {
+          source_type: driveId(url) ? 'google_drive' : 'remote_image_url',
+        });
+        logCalendarOperation(operationId, 'ocr_request_started');
+      }
       const response = await fetch('/api/calendar-screenshot', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-operation-id': operationId },
         body: JSON.stringify({ image_url: url, overlay_opacity: overlayOpacity, force_scan: true }),
         signal: controller.signal,
       });
+      logCalendarOperation(operationId, 'api_response_received', {
+        http_status: response.status,
+        duration_ms: Math.round(performance.now() - operationStartedAt),
+      });
       const data = await readResponseJson(response);
-      if (!response.ok) throw new Error(data.error || 'Could not save the calendar link.');
+      logCalendarOperation(operationId, 'api_response_decoded', {
+        server_operation_id: data.operation_id ?? null,
+      });
+      if (!response.ok) {
+        logCalendarOperation(operationId, 'api_response_error', {
+          http_status: response.status,
+          failed_stage: data.failed_stage ?? null,
+          error_message: data.error ?? 'Request failed.',
+        });
+        const responseError = new Error(data.error || 'Could not save the calendar link.');
+        responseError.httpStatus = response.status;
+        responseError.failedStage = data.failed_stage;
+        throw responseError;
+      }
+      if (url) {
+        logCalendarOperation(operationId, 'ocr_request_completed', {
+          scanned_count: data.scanned_count ?? 0,
+          skipped_count: data.skipped_count ?? 0,
+          unclassified_count: data.unclassified_count ?? 0,
+        });
+        logCalendarOperation(operationId, 'image_upload_completed');
+      }
+      logCalendarOperation(operationId, 'parsing_extraction_status', {
+        status: 'completed',
+        extracted_count: data.scanned_count ?? 0,
+        skipped_count: data.skipped_count ?? 0,
+        unclassified_count: data.unclassified_count ?? 0,
+      });
+      logCalendarOperation(operationId, 'scheduler_data_generation_status', {
+        status: 'completed',
+        created_count: data.created_events?.length ?? 0,
+        duplicate_count: data.duplicate_count ?? 0,
+        replaced_count: data.replaced_count ?? 0,
+      });
       setImageUrl(data.image_url);
       setDraftUrl(data.image_url);
       setImageFailed(false);
@@ -137,29 +206,66 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
         setMessage(data.image_url ? 'Calendar image saved.' : 'Calendar image removed.');
       }
       window.dispatchEvent(new Event('calendar-updated'));
+      operationStatus = 'success';
     } catch (saveError) {
-      setError(saveError.name === 'AbortError'
-        ? 'Calendar scan timed out. Try saving again or use a smaller image.'
-        : saveError.message);
+      const isInputError = saveError.httpStatus === 400;
+      const isOcrFailure = saveError.failedStage === 'ocr'
+        || timedOut
+        || saveError.httpStatus === 504;
+      const userMessage = isInputError
+        ? saveError.message
+        : isOcrFailure
+          ? 'OCR Failed: Unable to process the uploaded image. Please try again.'
+        : saveError.failedStage === 'scheduler_persistence'
+          ? 'OCR completed, but Scheduler data could not be saved. Please try again.'
+          : 'Unable to save the calendar. Please try again.';
+      setError(`${userMessage} Reference: ${operationId}.`);
+      logCalendarOperation(operationId, 'save_operation_error', {
+        failed_stage: saveError.failedStage
+          ?? (saveError.httpStatus === 504 ? 'vercel_function_timeout' : timedOut ? 'client_timeout' : 'request'),
+        http_status: saveError.httpStatus ?? null,
+        error_name: saveError.name ?? 'Error',
+        error_message: saveError.message ?? 'Unknown error',
+      });
     } finally {
       window.clearTimeout(timeoutId);
       setSaving(false);
+      logCalendarOperation(operationId, 'save_operation_status', {
+        status: operationStatus,
+        duration_ms: Math.round(performance.now() - operationStartedAt),
+      });
     }
   }
 
   async function saveOpacity(value) {
     setOverlayOpacity(value);
+    const operationId = createOperationId();
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
     try {
+      logCalendarOperation(operationId, 'overlay_save_started');
       const response = await fetch('/api/calendar-screenshot', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-operation-id': operationId },
         body: JSON.stringify({ image_url: imageUrl, overlay_opacity: value }),
+        signal: controller.signal,
       });
       const data = await readResponseJson(response);
-      if (!response.ok) throw new Error(data.error || 'Could not save overlay opacity.');
+      if (!response.ok) {
+        const responseError = new Error(data.error || 'Could not save overlay opacity.');
+        responseError.httpStatus = response.status;
+        throw responseError;
+      }
       setMessage('Overlay opacity saved.');
+      logCalendarOperation(operationId, 'overlay_save_completed', { http_status: response.status });
     } catch (saveError) {
-      setError(saveError.message);
+      setError(`Could not save overlay opacity. Reference: ${operationId}.`);
+      logCalendarOperation(operationId, 'overlay_save_failed', {
+        error_name: saveError.name ?? 'Error',
+        http_status: saveError.httpStatus ?? null,
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }
 
@@ -180,8 +286,10 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
     }
 
     setDownloadBusy(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
     try {
-      const response = await fetch(downloadUrl, { mode: 'cors' });
+      const response = await fetch(downloadUrl, { mode: 'cors', signal: controller.signal });
       if (!response.ok) throw new Error('The image source rejected the download.');
       const imageBlob = await response.blob();
       const extension = imageBlob.type === 'image/jpeg' ? 'jpg' : imageBlob.type.split('/')[1] || 'png';
@@ -196,6 +304,7 @@ export default function EconomicCalendarCard({ initialUrl = '', initialOpacity =
     } catch {
       setDownloadError('This image source blocks direct downloads. Open the image to save it.');
     } finally {
+      window.clearTimeout(timeoutId);
       setDownloadBusy(false);
     }
   }
