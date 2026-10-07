@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { DeleteButton, Modal, RecordForm } from '@/components/Form';
 import ConceptIcon, { conceptIconOptions } from '@/components/ConceptIcon';
+import ConceptRichText from '@/components/ConceptRichText';
 import { LuStar } from 'react-icons/lu';
 
 const fields = [
   { name: 'name', label: 'Name', type: 'text', required: true },
   { name: 'icon', label: 'Navigation icon', type: 'select', options: conceptIconOptions, iconPreview: true },
   { name: 'subtitle', label: 'Summary', type: 'text' },
-  { name: 'body', label: 'Detailed notes', type: 'textarea' },
+  { name: 'body', label: 'Detailed notes', type: 'richtext' },
   { name: 'show_in_nav', label: 'Show in Knowledge Base navigation', type: 'checkbox' },
 ];
 
@@ -53,13 +54,15 @@ export default function KnowledgeBase({ concepts }) {
         className="scroll-mt-6 rounded-lg border border-line bg-panel2/40 p-4 transition hover:border-win/60 hover:bg-panel2"
       >
         <div className="flex items-start justify-between gap-3">
-          <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSelected(concept)}>
-            <h3 className="flex items-center gap-2 text-[14px] font-semibold text-text">
-              <ConceptIcon icon={concept.icon} />{concept.name}
-            </h3>
-            <p className="text-[12px] text-muted">{concept.subtitle || 'Open to view details.'}</p>
-            {concept.body && <p className="mt-2 line-clamp-3 text-[13px] text-text/85">{concept.body}</p>}
-          </button>
+          <div className="min-w-0 flex-1">
+            <button type="button" className="block text-left" onClick={() => setSelected(concept)}>
+              <h3 className="flex items-center gap-2 text-[14px] font-semibold text-text">
+                <ConceptIcon icon={concept.icon} />{concept.name}
+              </h3>
+              <p className="text-[12px] text-muted">{concept.subtitle || 'Open to view details.'}</p>
+            </button>
+            {concept.body && <ConceptRichText body={concept.body} className="mt-2 line-clamp-3 text-[13px] text-text/85" />}
+          </div>
           <button
             type="button"
             aria-label={concept.isFavorite ? `Remove ${concept.name} from favorites` : `Add ${concept.name} to favorites`}
@@ -104,7 +107,7 @@ export default function KnowledgeBase({ concepts }) {
         )}
       </section>
 
-      <Modal open={Boolean(selected)} onClose={close} title={editing ? `Edit ${selected?.name}` : selected?.name || 'Concept details'}>
+      <Modal open={Boolean(selected)} onClose={close} size={editing ? 'max-w-4xl' : 'max-w-lg'} title={editing ? `Edit ${selected?.name}` : selected?.name || 'Concept details'}>
         {selected && editing ? (
           <RecordForm
             endpoint={`/api/concepts/${selected.id}`}
@@ -121,9 +124,7 @@ export default function KnowledgeBase({ concepts }) {
           <div className="space-y-5">
             <div>
               <p className="text-[13px] uppercase tracking-wide text-muted">{selected.subtitle || 'Knowledge base entry'}</p>
-              <p className="mt-3 whitespace-pre-line text-[14px] leading-7 text-text/90">
-                {selected.body || 'No detailed notes have been added yet.'}
-              </p>
+              <ConceptRichText body={selected.body} className="mt-3 text-[14px] leading-7 text-text/90" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
               <DeleteButton endpoint={`/api/concepts/${selected.id}`} label="Delete concept" onDone={close} />

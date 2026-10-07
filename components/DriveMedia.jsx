@@ -45,7 +45,7 @@ export function DriveVideo({ url, title }) {
   const preview = videoPreview(url);
   const sourceUrl = videoOpen(url);
   const fallback = (message) => (
-    <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border border-dashed border-line bg-gradient-to-br from-[#172433] via-[#111923] to-[#211b26] px-4 text-center">
+    <div className="relative flex aspect-[16/8] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border border-dashed border-line bg-gradient-to-br from-[#172433] via-[#111923] to-[#211b26] px-4 text-center">
       <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-white/5 text-2xl text-muted">▶</span>
       <span className="text-[13px] font-medium text-text">Video preview unavailable</span>
       <span className="max-w-sm text-[12px] leading-5 text-muted">{message}</span>
@@ -69,7 +69,7 @@ export function DriveVideo({ url, title }) {
         controls
         preload="metadata"
         onError={() => setVideoFailed(true)}
-        className="aspect-video w-full rounded-lg border border-line bg-black"
+        className="aspect-[16/8] w-full rounded-lg border border-line bg-black"
       />
     );
   }
@@ -83,7 +83,7 @@ export function DriveVideo({ url, title }) {
         type="button"
         onClick={() => setPlaying(true)}
         aria-label={`Play ${title}`}
-        className="group relative block aspect-video w-full overflow-hidden bg-black text-left"
+        className="group relative block aspect-[16/8] w-full overflow-hidden bg-black text-left"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -114,7 +114,7 @@ export function DriveVideo({ url, title }) {
       loading="lazy"
       referrerPolicy={preview.provider === 'youtube' ? 'origin' : 'strict-origin-when-cross-origin'}
       onError={() => setEmbedFailed(true)}
-      className="aspect-video w-full rounded-lg border border-line bg-black"
+      className="aspect-[16/8] w-full rounded-lg border border-line bg-black"
     />
   );
 }

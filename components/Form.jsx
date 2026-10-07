@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ConceptIcon from '@/components/ConceptIcon';
+import RichTextEditor from '@/components/RichTextEditor';
 import SelectMenu from '@/components/SelectMenu';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
 
@@ -14,7 +15,7 @@ function dateInputValue(value) {
   return match ? match[0] : '';
 }
 
-export function Modal({ open, onClose, title, children }) {
+export function Modal({ open, onClose, title, children, size = 'max-w-lg' }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function Modal({ open, onClose, title, children }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="panel w-full max-w-lg outline-none"
+        className={`panel w-full ${size} outline-none`}
       >
         <header className="panel-head">
           <h2 className="panel-title">{title}</h2>
@@ -132,7 +133,9 @@ export function RecordForm({ endpoint, fields, initial = {}, method = 'POST', su
             </label>
           )}
 
-          {f.type === 'textarea' ? (
+          {f.type === 'richtext' ? (
+            <RichTextEditor label={f.label} value={inputValue(f)} onChange={(value) => set(f.name, value)} />
+          ) : f.type === 'textarea' ? (
             <textarea
               id={f.name} className="field min-h-[80px]" rows={3}
               placeholder={f.placeholder} required={f.required}

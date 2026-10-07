@@ -64,6 +64,7 @@ export default function Sidebar({ isAdmin = false }) {
   const [concepts, setConcepts] = useState([]);
   const [strategies, setStrategies] = useState([]);
   const [clockTimes, setClockTimes] = useState({ india: '', newYork: '', compactIndia: '', compactNewYork: '' });
+  const [marketDate, setMarketDate] = useState('');
 
   useEffect(() => {
     setOpen(false);
@@ -105,6 +106,15 @@ export default function Sidebar({ isAdmin = false }) {
         ...(includeSeconds ? { second: '2-digit' } : {}),
         hour12: true,
       }).format(new Date());
+      const formatDate = () => {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+        }).formatToParts(new Date());
+        const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+        return `${values.weekday} ${values.day} ${values.month}`;
+      };
 
       setClockTimes({
         india: format('Asia/Kolkata', true),
@@ -112,6 +122,7 @@ export default function Sidebar({ isAdmin = false }) {
         compactIndia: format('Asia/Kolkata', false),
         compactNewYork: format('America/New_York', false),
       });
+      setMarketDate(formatDate());
     };
 
     updateTimes();
@@ -235,9 +246,12 @@ export default function Sidebar({ isAdmin = false }) {
       </nav>
 
       <section className={`mt-4 border-t border-line px-2 pt-3 ${collapsed ? 'lg:px-0' : ''}`} aria-label="Live market clocks">
-        <div className={`mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted ${collapsed ? 'lg:justify-center' : ''}`}>
+        <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <span className="flex items-center gap-2">
           <LuClock3 className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
           <span className={collapsed ? 'lg:hidden' : ''}>Market clocks</span>
+          </span>
+          <time className={`font-mono normal-case tracking-normal ${collapsed ? 'lg:hidden' : ''}`}>{marketDate}</time>
         </div>
         <div className={`space-y-1 text-[11px] ${collapsed ? 'lg:hidden' : ''}`}>
           <div className="flex items-center justify-between gap-2">
