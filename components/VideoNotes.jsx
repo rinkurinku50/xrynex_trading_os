@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { DeleteButton, Modal, RecordForm } from '@/components/Form';
+import ConceptRichText from '@/components/ConceptRichText';
 import { DriveVideo } from '@/components/DriveMedia';
 import { fmtDate } from '@/components/ui';
 import { videoOpen } from '@/lib/drive';
@@ -13,7 +14,7 @@ const fields = [
   { name: 'topic', label: 'Topic', type: 'text' },
   { name: 'watched_on', label: 'Watched on', type: 'date' },
   { name: 'drive_url', label: 'Video link', type: 'text' },
-  { name: 'notes', label: 'Notes', type: 'textarea' },
+  { name: 'notes', label: 'Notes', type: 'richtext' },
 ];
 
 export default function VideoNotes({ videos }) {
@@ -97,7 +98,7 @@ export default function VideoNotes({ videos }) {
             {video.topic && <span className="inline-flex items-center gap-1 rounded-md border border-line bg-ink px-2 py-1"><LuTag className="h-3.5 w-3.5 text-gold" aria-hidden />{video.topic}</span>}
             <span className="inline-flex items-center gap-1 rounded-md border border-line bg-ink px-2 py-1"><LuCalendarDays className="h-3.5 w-3.5 text-win" aria-hidden />{fmtDate(video.watched_on)}</span>
           </div>
-          {video.notes && <div className="mt-4 border-l-2 border-info/50 pl-3"><div className="label">Notes</div><p className="mt-1 line-clamp-4 whitespace-pre-line text-[13px] leading-relaxed text-text/85">{video.notes}</p></div>}
+          {video.notes && <div className="mt-4 border-l-2 border-info/50 pl-3"><div className="label">Notes</div><ConceptRichText body={video.notes} className="mt-1 line-clamp-4 text-[13px] leading-relaxed text-text/85" /></div>}
           <div className="mt-4 flex justify-end border-t border-line pt-3">
             <DeleteButton endpoint={`/api/videos/${video.id}`} />
           </div>
@@ -130,7 +131,7 @@ export default function VideoNotes({ videos }) {
         )}
       </section>
 
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title="Edit video note">
+      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} size="max-w-4xl" title="Edit video note">
         {selected && (
           <RecordForm
             endpoint={`/api/videos/${selected.id}`}

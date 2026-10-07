@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { DeleteButton, Modal, RecordForm } from '@/components/Form';
+import ConceptRichText from '@/components/ConceptRichText';
 import { fieldSets } from '@/components/NewButton';
 import { Badge } from '@/components/ui';
 import { driveOpen } from '@/lib/drive';
@@ -61,8 +62,12 @@ export default function StrategyLab({ strategies }) {
             <Badge>{strategy.status}</Badge>
           </div>
         </div>
-        <p className="mt-2 text-[13px] text-text/80">{strategy.description || 'No description yet.'}</p>
-        {strategy.rules && <p className="mt-2 whitespace-pre-line text-[12px] text-muted">{strategy.rules}</p>}
+        {strategy.description ? (
+          <ConceptRichText body={strategy.description} className="mt-2 text-[13px] text-text/80" />
+        ) : (
+          <p className="mt-2 text-[13px] text-text/80">No description yet.</p>
+        )}
+        {strategy.rules && <ConceptRichText body={strategy.rules} className="mt-2 text-[12px] text-muted" />}
         <div className="mt-3 flex items-center justify-end border-t border-line pt-3 text-[12px]">
           <span className="flex gap-3">
             {strategy.drive_url && (
@@ -106,7 +111,7 @@ export default function StrategyLab({ strategies }) {
         </section>
       </div>
 
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={`Edit ${selected?.name || 'strategy'}`}>
+      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} size="max-w-4xl" title={`Edit ${selected?.name || 'strategy'}`}>
         {selected && (
           <RecordForm
             key={selected.id}

@@ -17,8 +17,8 @@ export const fieldSets = {
     { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'London Sweep' },
     { name: 'status', label: 'Status', type: 'select',
       options: ['Draft', 'Research', 'Backtesting', 'Testing', 'Active', 'Validated'], default: 'Draft' },
-    { name: 'description', label: 'What it is', type: 'textarea' },
-    { name: 'rules', label: 'Rules', type: 'textarea', placeholder: 'Entry, stop, target, invalidation' },
+    { name: 'description', label: 'What it is', type: 'richtext' },
+    { name: 'rules', label: 'Rules', type: 'richtext', placeholder: 'Entry, stop, target, invalidation' },
     { name: 'drive_url', label: 'Drive link', type: 'text', placeholder: 'https://drive.google.com/…' },
     { name: 'show_in_nav', label: 'Show in Strategy Lab navigation', type: 'checkbox' }
   ],
@@ -31,7 +31,7 @@ export const fieldSets = {
     { name: 'drive_url', label: 'Video link', type: 'text',
       placeholder: 'https://drive.google.com/file/d/…/view',
       help: 'Google Drive video link — it plays inline.' },
-    { name: 'notes', label: 'Notes', type: 'textarea' }
+    { name: 'notes', label: 'Notes', type: 'richtext' }
   ],
 
   chart: () => [
@@ -50,7 +50,7 @@ export const fieldSets = {
     { name: 'name', label: 'Name', type: 'text', required: true },
     { name: 'icon', label: 'Navigation icon', type: 'select', options: conceptIconOptions, default: 'book', iconPreview: true },
     { name: 'subtitle', label: 'One-line summary', type: 'text' },
-    { name: 'body', label: 'Notes', type: 'textarea' },
+    { name: 'body', label: 'Detailed notes', type: 'richtext' },
     { name: 'show_in_nav', label: 'Show in Knowledge Base navigation', type: 'checkbox' }
   ]
 };
@@ -83,7 +83,7 @@ export default function NewButton({ kind, label, className = 'btn', context = []
       <button className={className} onClick={() => setOpen(true)}>
         {label ?? `+ ${titles[kind]}`}
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title={titles[kind]}>
+      <Modal open={open} onClose={() => setOpen(false)} size={['concept', 'strategy', 'video'].includes(kind) ? 'max-w-4xl' : undefined} title={titles[kind]}>
         <RecordForm
           endpoint={endpoints[kind]}
           fields={fields}

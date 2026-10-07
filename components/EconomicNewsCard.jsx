@@ -67,6 +67,18 @@ function formatZoneTime(timestamp, timeZone) {
   }).format(new Date(timestamp));
 }
 
+function formatZoneDate(timestamp, timeZone) {
+  if (!timestamp) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.weekday} ${values.day} ${values.month}`;
+}
+
 function formatCountdown(value, now) {
   if (!value || !now || value.length === 10) return '';
   const secondsLeft = Math.floor((new Date(`${value}:00Z`).getTime() - new Date(`${now}Z`).getTime()) / 1000);
@@ -390,16 +402,21 @@ export default function EconomicNewsCard({ initialNews = [], compact = false, se
         {!compact && <span className="text-[12px] text-muted">Manual events</span>}
       </header>
       {compact && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-panel2/20 px-4 py-2 text-[11px]">
-          <span className="font-semibold uppercase tracking-wide text-muted">Live clocks</span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="text-muted">India</span>
-            <span className="font-mono font-medium tabular-nums text-text">{formatZoneTime(clockNow, 'Asia/Kolkata')}</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="text-muted">NY</span>
-            <span className="font-mono font-medium tabular-nums text-text">{formatZoneTime(clockNow, 'America/New_York')}</span>
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-panel2/20 px-4 py-2 text-[11px]">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-semibold uppercase tracking-wide text-muted">Live clocks</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-muted">India</span>
+              <span className="font-mono font-medium tabular-nums text-text">{formatZoneTime(clockNow, 'Asia/Kolkata')}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-muted">NY</span>
+              <span className="font-mono font-medium tabular-nums text-text">{formatZoneTime(clockNow, 'America/New_York')}</span>
+            </span>
+          </div>
+          <time className="ml-auto whitespace-nowrap font-mono tabular-nums text-muted">
+            {formatZoneDate(clockNow, 'America/New_York')}
+          </time>
         </div>
       )}
       <div className="panel-body">
