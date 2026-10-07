@@ -45,6 +45,9 @@ export default function TradingPlanChecklist({ title = 'Trading Checklist', hidd
           rules: group.rules.map((rule) => ({ ...rule, requirement: requirementFor(rule) })),
         })));
       }
+      if (saved?.collapsed && typeof saved.collapsed === 'object' && !Array.isArray(saved.collapsed)) {
+        setCollapsed(saved.collapsed);
+      }
       if (saved?.sessions) setSessions(saved.sessions);
       if (Array.isArray(saved?.requirements) && saved.requirements.length) setRequirements([...new Set(saved.requirements)]);
       setHydrated(true);
@@ -57,12 +60,12 @@ export default function TradingPlanChecklist({ title = 'Trading Checklist', hidd
   useEffect(() => {
     if (!hydrated) return undefined;
     const timer = window.setTimeout(() => {
-      writePreferences({ 'trading-plan-checklist': { groups, sessions, requirements } })
+      writePreferences({ 'trading-plan-checklist': { groups, sessions, requirements, collapsed } })
         .then(() => setPreferenceError(''))
         .catch((error) => setPreferenceError(error.message));
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [groups, hydrated, requirements, sessions]);
+  }, [collapsed, groups, hydrated, requirements, sessions]);
 
   const stats = useMemo(() => {
     const rules = groups.filter((group) => !hiddenGroupIdSet.has(group.id)).flatMap((group) => group.rules);

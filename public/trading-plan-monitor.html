@@ -17,10 +17,11 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
   .monitor-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;flex:1;min-height:0}
   .checklist-scroll{min-height:0;overflow:auto;scrollbar-color:rgba(148,163,184,.25) transparent;scrollbar-width:thin}
-  .group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:10px}
+  .group-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));align-items:start;gap:10px}
   .check-dot{display:grid;place-items:center;width:19px;height:19px;flex:none;border:1px solid rgba(148,163,184,.45);border-radius:6px;color:#10140e;font-size:12px;cursor:pointer;transition:background .16s,border-color .16s,box-shadow .16s}
   .check-dot:hover{border-color:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.1)}
   .check-dot:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  #checklist-groups button[data-collapse-group]>span:first-child>span[aria-hidden="true"]{width:1rem;height:1.25rem;font-size:1.25rem;line-height:1}
   .check-dot.done{border-color:#fbbf24;background:#fbbf24}
   .priority-high{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.08);color:#fca5a5}
   .priority-medium{border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07);color:#fcd34d}
@@ -211,7 +212,9 @@
     byId('checklist-groups').innerHTML = visibleGroups.length ? `<div class="group-grid">${visibleGroups.map((group) => {
       const items = Array.isArray(group.rules) ? group.rules : [];
       const done = items.filter((rule) => rule.done).length;
-      return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3" aria-label="${escapeHtml(group.title)} checklist section"><header class="mb-2 flex items-center justify-between gap-2 border-b border-white/[.06] pb-2"><h3 class="min-w-0 break-words text-xs font-bold text-slate-200">${escapeHtml(group.title)}</h3><span class="shrink-0 rounded-full bg-white/[.05] px-2 py-1 font-mono text-[9px] tabular-nums text-slate-400">${done}/${items.length}</span></header><ul class="divide-y divide-white/[.045]">${items.map((rule) => `<li class="flex min-w-0 items-start gap-2.5 py-2.5 last:pb-1"><button type="button" role="checkbox" aria-checked="${Boolean(rule.done)}" aria-label="${rule.done ? 'Uncheck' : 'Check'} ${escapeHtml(rule.title)}" data-group-id="${escapeHtml(group.id)}" data-rule-id="${escapeHtml(rule.id)}" class="check-dot ${rule.done ? 'done' : ''}">${rule.done ? '✓' : ''}</button><span class="min-w-0 flex-1 break-words text-[11px] leading-relaxed ${rule.done ? 'text-slate-500 line-through' : 'text-slate-200'}">${escapeHtml(rule.title)}</span><span class="shrink-0 pt-1 text-[8px] uppercase tracking-wide ${requirementFor(rule) === 'Must pass' ? 'text-amber-300' : 'text-slate-600'}">${escapeHtml(requirementFor(rule))}</span></li>`).join('')}</ul></section>`;
+      const isCollapsed = Boolean(currentChecklist?.collapsed?.[group.id]);
+      const rulesId = `checklist-rules-${encodeURIComponent(String(group.id))}`;
+      return `<section class="rounded-xl border border-white/[.07] bg-white/[.025] p-3" aria-label="${escapeHtml(group.title)} checklist section"><header class="mb-2 border-b border-white/[.06] pb-2"><button type="button" data-collapse-group="${escapeHtml(group.id)}" aria-expanded="${!isCollapsed}" aria-controls="${rulesId}" class="flex w-full items-center justify-between gap-2 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300"><span class="flex min-w-0 items-center gap-2"><span aria-hidden="true" class="w-3 shrink-0 text-center text-sm text-slate-400">${isCollapsed ? '›' : '⌄'}</span><span class="min-w-0 break-words text-xs font-bold text-slate-200">${escapeHtml(group.title)}</span></span><span class="shrink-0 rounded-full bg-white/[.05] px-2 py-1 font-mono text-[9px] tabular-nums text-slate-400">${done}/${items.length}</span></button></header>${isCollapsed ? '' : `<ul id="${rulesId}" class="divide-y divide-white/[.045]">${items.map((rule) => `<li class="flex min-w-0 items-start gap-2.5 py-2.5 last:pb-1"><button type="button" role="checkbox" aria-checked="${Boolean(rule.done)}" aria-label="${rule.done ? 'Uncheck' : 'Check'} ${escapeHtml(rule.title)}" data-group-id="${escapeHtml(group.id)}" data-rule-id="${escapeHtml(rule.id)}" class="check-dot ${rule.done ? 'done' : ''}">${rule.done ? '✓' : ''}</button><span class="min-w-0 flex-1 break-words text-[11px] leading-relaxed ${rule.done ? 'text-slate-500 line-through' : 'text-slate-200'}">${escapeHtml(rule.title)}</span><span class="shrink-0 pt-1 text-[8px] uppercase tracking-wide ${requirementFor(rule) === 'Must pass' ? 'text-amber-300' : 'text-slate-600'}">${escapeHtml(requirementFor(rule))}</span></li>`).join('')}</ul>`}</section>`;
     }).join('')}</div>` : '<p class="py-8 text-center text-sm text-slate-500">No checklist sections have been added.</p>';
   }
 
@@ -419,6 +422,19 @@
     byId('calendar-open').focus();
   });
   byId('checklist-groups').addEventListener('click', (event) => {
+
+    const collapseButton = event.target.closest('button[data-collapse-group]');
+    if (collapseButton && currentChecklist) {
+      const groupId = collapseButton.dataset.collapseGroup;
+      const collapsed = currentChecklist.collapsed || {};
+      currentChecklist = {
+        ...currentChecklist,
+        collapsed: { ...collapsed, [groupId]: !collapsed[groupId] },
+      };
+      renderChecklist(currentChecklist);
+      scheduleChecklistSave();
+      return;
+    }
     const checkbox = event.target.closest('button[data-group-id][data-rule-id]');
     if (checkbox) toggleRule(checkbox.dataset.groupId, checkbox.dataset.ruleId);
   });
