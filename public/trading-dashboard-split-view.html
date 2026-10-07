@@ -86,10 +86,10 @@
         <div class="header-clock"><div class="header-clock-label">NEW YORK</div><div id="main-new-york-clock" class="header-clock-value">--:--:--</div></div>
       </div>
       <div class="toolbar">
-        <div class="split-meter" aria-live="polite"><div class="split-label">Panel balance</div><div id="split-value" class="split-value"><strong>50%</strong> / 50%</div></div>
-        <button id="reset-split" class="tool-button" type="button" title="Reset panel widths to equal" aria-label="Reset panel widths to equal"><span aria-hidden="true">↔</span><span class="reset-label">Reset</span></button>
+        <div class="split-meter" aria-live="polite"><div class="split-label">Panel balance</div><div id="split-value" class="split-value"><strong>75%</strong> / 25%</div></div>
+        <button id="reset-split" class="tool-button" type="button" title="Reset panel widths to default (75/25)" aria-label="Reset panel widths to default, 75 percent Trading Plan and 25 percent Mistake Monitor"><span aria-hidden="true">↔</span><span class="reset-label">Reset</span></button>
         <button id="main-fullscreen" class="tool-button" type="button" title="Toggle dashboard fullscreen" aria-label="Toggle dashboard fullscreen">⛶</button>
-        <a href="/trading-plan" class="tool-button back-to-plan" title="Return to Trading Plan">← <span>Back to Plan</span></a>
+        <a href="/" class="tool-button back-to-plan" title="Return to Dashboard">← <span>Back to Dashboard</span></a>
       </div>
     </div>
   </header>
@@ -104,7 +104,7 @@
       <span class="pane-label">TRADING PLAN MONITOR</span>
       <iframe id="plan-frame" src="/trading-plan-monitor.html" title="Trading Plan Monitor" loading="eager" allow="fullscreen" referrerpolicy="same-origin"></iframe>
     </section>
-    <button id="divider" class="divider" type="button" role="separator" aria-label="Resize dashboard panels" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50" aria-valuetext="Trading Plan 50 percent, Mistake Monitor 50 percent" tabindex="0"><span class="grip" aria-hidden="true"></span></button>
+    <button id="divider" class="divider" type="button" role="separator" aria-label="Resize dashboard panels" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="75" aria-valuetext="Trading Plan 75 percent, Mistake Monitor 25 percent" tabindex="0"><span class="grip" aria-hidden="true"></span></button>
     <section id="mistake-pane" class="pane" aria-label="Mistake Monitor">
       <span class="pane-label">MISTAKE MONITOR</span>
       <iframe id="mistake-frame" src="/mistake-monitor.html" title="Mistake Monitor" loading="eager" allow="fullscreen" referrerpolicy="same-origin"></iframe>
@@ -122,7 +122,7 @@
   const mistakeFrame = document.getElementById('mistake-frame');
   const mobileTabs = [...document.querySelectorAll('.mobile-tab')];
   const sessionStartedAt = Date.now();
-  let split = 0.5;
+  let split = 0.75;
   let dragPointer = null;
 
   const frameStyles = [
@@ -248,7 +248,7 @@
     event.preventDefault();
     renderSplit();
   });
-  reset.addEventListener('click', () => { split = 0.5; renderSplit(); });
+  reset.addEventListener('click', () => { split = 0.75; renderSplit(); });
   document.getElementById('main-fullscreen').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen?.().catch(() => {});
