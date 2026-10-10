@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LuBellRing, LuVolume2 } from 'react-icons/lu';
+import { LuBellRing, LuChevronDown, LuVolume2 } from 'react-icons/lu';
 import {
   reminderSettingsUpdatedEvent,
   reminderTestNotificationEvent,
   reminderTestSoundEvent,
 } from '@/lib/reminder-settings';
 import { readPreferences, writePreferences } from '@/lib/client-preferences';
+import {
+  DEFAULT_ECONOMIC_NEWS_ALERT_SETTINGS,
+  ECONOMIC_NEWS_ALERT_SETTINGS_KEY,
+  normalizeEconomicNewsAlertSettings,
+} from '@/lib/economic-news-alert-settings';
 
 function SettingsToggle({ checked, onChange, label }) {
   return (
@@ -19,18 +24,33 @@ function SettingsToggle({ checked, onChange, label }) {
   );
 }
 
+function SettingsSelect({ children, ...props }) {
+  return (
+    <span className="relative mt-2 block">
+      <select {...props} className="field cursor-pointer appearance-none pr-11">
+        {children}
+      </select>
+      <LuChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+    </span>
+  );
+}
+
 export default function ReminderSettings({ userId }) {
   const settingsEvent = reminderSettingsUpdatedEvent(userId);
   const [settings, setSettings] = useState(null);
+  const [newsAlertSettings, setNewsAlertSettings] = useState(DEFAULT_ECONOMIC_NEWS_ALERT_SETTINGS);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let mounted = true;
-    readPreferences(['reminder-settings'], {
+    readPreferences(['reminder-settings', ECONOMIC_NEWS_ALERT_SETTINGS_KEY], {
       'reminder-settings': `xrynex-reminder-settings:${userId}`,
     }).then((saved) => {
-      if (mounted) setSettings(saved['reminder-settings'] || null);
+      if (mounted) {
+        setSettings(saved['reminder-settings'] || null);
+        setNewsAlertSettings(normalizeEconomicNewsAlertSettings(saved[ECONOMIC_NEWS_ALERT_SETTINGS_KEY]));
+      }
     }).catch((loadError) => {
       if (mounted) setError(loadError.message);
     }).finally(() => {
@@ -47,6 +67,14 @@ export default function ReminderSettings({ userId }) {
       setError('');
       window.dispatchEvent(new Event(settingsEvent));
     }).catch((saveError) => setError(saveError.message));
+  }
+
+  function updateNewsAlertSettings(changes) {
+    if (!loaded) return;
+    const next = normalizeEconomicNewsAlertSettings({ ...newsAlertSettings, ...changes });
+    setNewsAlertSettings(next);
+    writePreferences({ [ECONOMIC_NEWS_ALERT_SETTINGS_KEY]: next }).then(() => setError(''))
+      .catch((saveError) => setError(saveError.message));
   }
 
   if (!loaded || !settings) {
@@ -98,11 +126,11 @@ export default function ReminderSettings({ userId }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-[12px] font-semibold text-muted">
             Alert sound
-            <select className="field mt-2 w-full" value={settings.tone} onChange={(event) => updateSettings({ tone: event.target.value })}>
+            <SettingsSelect value={settings.tone} onChange={(event) => updateSettings({ tone: event.target.value })}>
               <option value="chime">Soft chime</option>
               <option value="double">Double tone</option>
               <option value="bell">Bright bell</option>
-            </select>
+            </SettingsSelect>
           </label>
           <div className="flex items-end gap-2">
             <button type="button" className="btn btn-primary flex-1 px-3 py-2.5 text-[12px]" onClick={() => window.dispatchEvent(new Event(reminderTestSoundEvent(userId)))}>
@@ -132,6 +160,61 @@ export default function ReminderSettings({ userId }) {
 
         <p className="text-[11px] leading-5 text-muted">Keep the app open to receive reminders. Your browser needs a user interaction before it will play sound. A test notification previews the real popup without adding a reminder to your schedule.</p>
       </div>
+
+      <section className="border-t border-line" aria-labelledby="economic-news-alerts-title">
+        <div className="panel-head">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-gold/30 bg-gold/10 text-gold" aria-hidden="true">
+              <LuBellRing className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 id="economic-news-alerts-title" className="text-[16px] font-semibold text-white">Economic news alerts</h2>
+              <p className="mt-1 text-[12px] text-muted">Customize the Scheduler release screen and its sound.</p>
+            </div>
+          </div>
+        </div>
+        <div className="panel-body space-y-4">
+          <label className="flex items-center justify-between gap-4 rounded-xl border border-line bg-panel2/50 p-4">
+            <span>
+              <span className="block text-[13px] font-semibold text-text">Enable release alerts</span>
+              <span className="mt-1 block text-[11px] text-muted">Show an animated alert when scheduled news is released.</span>
+            </span>
+            <SettingsToggle checked={newsAlertSettings.enabled} onChange={(event) => updateNewsAlertSettings({ enabled: event.target.checked })} label="Enable economic news alerts" />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-4 text-[13px] text-text">
+              Play release sound
+              <SettingsToggle checked={newsAlertSettings.soundEnabled} onChange={(event) => updateNewsAlertSettings({ soundEnabled: event.target.checked })} label="Play economic news release sound" />
+            </label>
+            <label className="text-[12px] font-semibold text-muted">
+              Heads-up popup auto-dismiss
+              <SettingsSelect value={newsAlertSettings.preReleaseAutoDismissSeconds ?? 'off'} onChange={(event) => updateNewsAlertSettings({ preReleaseAutoDismissSeconds: event.target.value === 'off' ? null : Number(event.target.value) })}>
+                <option value="off">Off · dismiss manually</option>
+                {[5, 10, 15, 20, 30].map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
+              </SettingsSelect>
+            </label>
+            <label className="text-[12px] font-semibold text-muted">
+              Release popup auto-dismiss
+              <SettingsSelect value={newsAlertSettings.autoDismissSeconds ?? 'off'} onChange={(event) => updateNewsAlertSettings({ autoDismissSeconds: event.target.value === 'off' ? null : Number(event.target.value) })}>
+                <option value="off">Off · dismiss manually</option>
+                {[5, 10, 15, 20, 30].map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
+              </SettingsSelect>
+            </label>
+            <label className="text-[12px] font-semibold text-muted">
+              Release sound duration
+              <SettingsSelect value={newsAlertSettings.soundSeconds} onChange={(event) => updateNewsAlertSettings({ soundSeconds: Number(event.target.value) })}>
+                {[5, 7, 10].map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
+              </SettingsSelect>
+            </label>
+            <label className="block text-[12px] font-semibold text-muted">
+              Sound volume · {newsAlertSettings.volume}%
+              <input className="mt-3 w-full accent-win" type="range" min="0" max="100" value={newsAlertSettings.volume} onChange={(event) => updateNewsAlertSettings({ volume: Number(event.target.value) })} aria-label="Economic news alert sound volume" />
+            </label>
+          </div>
+          <p className="text-[11px] leading-5 text-muted">The one-minute heads-up sound runs for 30 seconds; its popup timer is separate from the exact-time release popup. The alert color changes with event impact, and Scheduler test buttons preview alerts without saving news events.</p>
+        </div>
+      </section>
     </section>
   );
 }

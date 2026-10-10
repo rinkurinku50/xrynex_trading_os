@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedApi } from '@/lib/api-auth';
 import { prisma } from '@/lib/db';
 import { DEFAULT_REMINDER_SETTINGS, DEFAULT_USER_PREFERENCES } from '@/lib/workspace-defaults';
+import { normalizeEconomicNewsAlertSettings } from '@/lib/economic-news-alert-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ const allowedKeys = new Set([
   'routine-accent',
   'routine-theme',
   'reminder-settings',
+  'economic-news-alert-settings',
   'reminder-acknowledged',
   'trading-plan-checklist',
   'trading-plan-layout',
@@ -144,8 +146,13 @@ export async function PUT(request) {
     if (key === 'reminder-settings' && (!value || typeof value !== 'object' || Array.isArray(value))) {
       return response({ error: 'Reminder settings must be an object.' }, 400);
     }
+    if (key === 'economic-news-alert-settings' && (!value || typeof value !== 'object' || Array.isArray(value))) {
+      return response({ error: 'Economic news alert settings must be an object.' }, 400);
+    }
     const normalizedValue = key === 'reminder-settings'
       ? { ...DEFAULT_REMINDER_SETTINGS, ...value }
+      : key === 'economic-news-alert-settings'
+        ? normalizeEconomicNewsAlertSettings(value)
       : value;
     let serialized;
     try {
