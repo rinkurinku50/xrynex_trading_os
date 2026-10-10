@@ -61,6 +61,8 @@ export default function DailyTaskManager({ tasks }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [taskAction, setTaskAction] = useState(null);
   const today = localDateKey(new Date());
 
@@ -108,6 +110,66 @@ export default function DailyTaskManager({ tasks }) {
     return [...groups.entries()];
   }, [activeTab, visibleTasks]);
 
+  const supportsBulkDelete = ['Pending', 'Completed', 'Removed'].includes(activeTab);
+  const allVisibleTasksSelected = visibleTasks.length > 0
+    && visibleTasks.every((task) => selectedTaskIds.has(task.id));
+
+  function toggleTaskSelection(taskId) {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
+
+  function toggleVisibleTaskSelection() {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (allVisibleTasksSelected) visibleTasks.forEach((task) => next.delete(task.id));
+      else visibleTasks.forEach((task) => next.add(task.id));
+      return next;
+    });
+  }
+
+  async function permanentlyDeleteSelectedTasks() {
+    const selectedTasks = visibleTasks.filter((task) => selectedTaskIds.has(task.id));
+    if (!selectedTasks.length) return;
+
+    const accepted = await confirm({
+      title: `Delete ${selectedTasks.length} task${selectedTasks.length === 1 ? '' : 's'} permanently?`,
+      message: 'These tasks cannot be restored.',
+      confirmLabel: `Delete ${selectedTasks.length} permanently`,
+    });
+    if (!accepted) return;
+
+    setBulkDeleting(true);
+    setError('');
+    const results = await Promise.all(selectedTasks.map(async (task) => {
+      try {
+        const response = await fetch(`/api/tasks/${task.id}?permanent=true`, { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not permanently delete this task.');
+        return { id: task.id, error: null };
+      } catch (deleteError) {
+        return { id: task.id, error: deleteError.message };
+      }
+    }));
+
+    const deletedIds = new Set(results.filter((result) => !result.error).map((result) => result.id));
+    const failures = results.filter((result) => result.error);
+    if (deletedIds.size) {
+      setItems((current) => current.filter((task) => !deletedIds.has(task.id)));
+      window.dispatchEvent(new Event('tasks-updated'));
+      router.refresh();
+    }
+    setSelectedTaskIds(new Set(failures.map((result) => result.id)));
+    if (failures.length) {
+      setError(`${deletedIds.size} deleted; ${failures.length} could not be deleted. ${failures[0].error}`);
+    }
+    setBulkDeleting(false);
+  }
+
   async function updateTask(task, changes) {
     setError('');
     const response = await fetch(`/api/tasks/${task.id}`, {
@@ -140,6 +202,11 @@ export default function DailyTaskManager({ tasks }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not permanently delete this task.');
       setItems((current) => current.filter((item) => item.id !== task.id));
+      setSelectedTaskIds((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
       window.dispatchEvent(new Event('tasks-updated'));
       router.refresh();
     } catch (deleteError) {
@@ -167,6 +234,7 @@ export default function DailyTaskManager({ tasks }) {
       setReminderTime('');
       setPriority('Medium');
       setActiveTab('Today');
+      setSelectedTaskIds(new Set());
       window.dispatchEvent(new Event('tasks-updated'));
       router.refresh();
     } catch (err) {
@@ -247,13 +315,37 @@ export default function DailyTaskManager({ tasks }) {
             role="tab"
             aria-selected={activeTab === tab}
             aria-controls={`${idPrefix}-panel`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              setSelectedTaskIds(new Set());
+            }}
             className={`shrink-0 border-b-2 px-3 py-2 text-[13px] transition-colors ${activeTab === tab ? 'border-win text-white' : 'border-transparent text-muted hover:text-text'}`}
           >
             {tab}<span className="ml-2 rounded-full bg-panel2 px-2 py-0.5 text-[11px]">{counts[tab]}</span>
           </button>
         ))}
       </div>
+
+      {supportsBulkDelete && visibleTasks.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3" aria-label="Bulk task actions">
+          <button type="button" className="btn px-3 py-1.5 text-[12px]" onClick={toggleVisibleTaskSelection}>
+            {allVisibleTasksSelected ? 'Clear selection' : 'Select all'}
+          </button>
+          <span className="text-[12px] text-muted" aria-live="polite">
+            {selectedTaskIds.size} selected
+          </span>
+          {selectedTaskIds.size > 0 && (
+            <button
+              type="button"
+              className="btn border-loss/40 bg-loss/15 px-3 py-1.5 text-[12px] text-loss hover:border-loss/60 hover:bg-loss/25 disabled:opacity-50"
+              onClick={permanentlyDeleteSelectedTasks}
+              disabled={bulkDeleting || deletingTaskId !== null}
+            >
+              {bulkDeleting ? 'Deleting…' : `Delete selected permanently (${selectedTaskIds.size})`}
+            </button>
+          )}
+        </div>
+      )}
 
       <div id={`${idPrefix}-panel`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabs.indexOf(activeTab)}`}>
         {groupedTasks.length ? (
@@ -269,6 +361,16 @@ export default function DailyTaskManager({ tasks }) {
               const isLate = !task.removed_at && !task.done && taskDay < today;
             return (
               <li key={task.id} className="daily-task-row flex flex-wrap items-center gap-3 py-3">
+                {supportsBulkDelete && (
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.has(task.id)}
+                    onChange={() => toggleTaskSelection(task.id)}
+                    className="daily-task-check h-4 w-4 rounded border-line bg-ink accent-win"
+                    aria-label={`Select ${task.title} for permanent deletion`}
+                    disabled={bulkDeleting || deletingTaskId !== null}
+                  />
+                )}
                 {activeTab !== 'Pending' && activeTab !== 'Removed' && (
                   <input
                     type="checkbox"
@@ -339,7 +441,7 @@ export default function DailyTaskManager({ tasks }) {
                     <button
                       type="button"
                       className="text-[12px] text-muted hover:text-loss disabled:opacity-50"
-                      disabled={deletingTaskId === task.id}
+                      disabled={deletingTaskId === task.id || bulkDeleting}
                       onClick={() => permanentlyDeleteTask(task)}
                     >
                       {deletingTaskId === task.id ? 'Deleting…' : 'Delete permanently'}

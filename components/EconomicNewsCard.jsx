@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { LuCopy, LuGripVertical, LuPencil, LuPlus, LuSave, LuTrash2, LuX } from 'react-icons/lu';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LuClock3, LuCopy, LuGripVertical, LuPencil, LuPlus, LuRadio, LuSave, LuTrash2, LuX } from 'react-icons/lu';
 import SelectMenu from '@/components/SelectMenu';
 import { useConfirmDialog } from '@/components/ConfirmDialogProvider';
-import { readPreferences, writePreferences } from '@/lib/client-preferences';
+import { preferencesUpdatedEvent, readPreferences, writePreferences } from '@/lib/client-preferences';
+import {
+  DEFAULT_ECONOMIC_NEWS_ALERT_SETTINGS,
+  ECONOMIC_NEWS_ALERT_SETTINGS_KEY,
+  normalizeEconomicNewsAlertSettings,
+} from '@/lib/economic-news-alert-settings';
 
 const priorities = ['High', 'Medium', 'Low', 'Bank holiday'];
 const priorityRank = { High: 0, Medium: 1, Low: 2, 'Bank holiday': 3 };
+const preReleaseSoundSeconds = 30;
 const priorityStyles = {
   High: 'bg-loss',
   Medium: 'bg-[#f08b3e]',
@@ -89,6 +95,13 @@ function formatCountdown(value, now) {
   return [hours, minutes, seconds].map((unit) => String(unit).padStart(2, '0')).join(':');
 }
 
+function minutesUntilEvent(value, currentMinute) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || !currentMinute) return null;
+  const eventTimestamp = new Date(`${value}:00Z`).getTime();
+  const currentTimestamp = new Date(`${currentMinute}:00Z`).getTime();
+  return Math.round((eventTimestamp - currentTimestamp) / 60_000);
+}
+
 function eventValue(item) {
   return item.event_at ?? item.eventAt ?? '';
 }
@@ -136,6 +149,57 @@ export default function EconomicNewsCard({ initialNews = [], compact = false, se
   const [dropTarget, setDropTarget] = useState(null);
   const [nowNY, setNowNY] = useState('');
   const [clockNow, setClockNow] = useState(0);
+  const [releaseAlert, setReleaseAlert] = useState(null);
+  const [alertSettings, setAlertSettings] = useState(DEFAULT_ECONOMIC_NEWS_ALERT_SETTINGS);
+  const audioContextRef = useRef(null);
+  const releaseSoundNodesRef = useRef([]);
+  const testSequenceTimeoutRef = useRef(null);
+  const announcedUpcomingRef = useRef(new Set());
+  const announcedReleasesRef = useRef(new Set());
+  const lastReleaseScanRef = useRef(null);
+
+  const unlockReleaseAudio = useCallback(() => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return Promise.resolve();
+    audioContextRef.current ??= new AudioContextClass();
+    if (audioContextRef.current.state === 'suspended') {
+      return audioContextRef.current.resume().catch(() => {});
+    }
+    return Promise.resolve();
+  }, []);
+
+  const stopReleaseSound = useCallback(() => {
+    for (const oscillator of releaseSoundNodesRef.current) {
+      try { oscillator.stop(); } catch {}
+    }
+    releaseSoundNodesRef.current = [];
+  }, []);
+
+  const playReleaseSound = useCallback((durationSeconds = alertSettings.soundSeconds) => {
+    stopReleaseSound();
+    if (!alertSettings.soundEnabled || !alertSettings.volume) return;
+    const context = audioContextRef.current;
+    if (!context || context.state !== 'running') return;
+
+    const pattern = [880, 1175, 880, 1568];
+    const startAt = context.currentTime + 0.03;
+    const noteCount = Math.max(1, Math.floor((durationSeconds - 0.36) / 0.46) + 1);
+    for (let index = 0; index < noteCount; index += 1) {
+      const start = startAt + index * 0.46;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(pattern[index % pattern.length], start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime((alertSettings.volume / 100) * 0.08, start + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.34);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.36);
+      releaseSoundNodesRef.current.push(oscillator);
+    }
+  }, [alertSettings.soundEnabled, alertSettings.soundSeconds, alertSettings.volume, stopReleaseSound]);
 
   useEffect(() => {
     if (!compact && !eventAt) setEventAt(newYorkInputValue());
@@ -151,6 +215,154 @@ export default function EconomicNewsCard({ initialNews = [], compact = false, se
     const interval = window.setInterval(updateClocks, 1_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const unlockOnInteraction = () => unlockReleaseAudio();
+    window.addEventListener('pointerdown', unlockOnInteraction, { once: true, capture: true });
+    window.addEventListener('keydown', unlockOnInteraction, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockOnInteraction, { capture: true });
+      window.removeEventListener('keydown', unlockOnInteraction);
+    };
+  }, [unlockReleaseAudio]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadAlertSettings = () => {
+      readPreferences([ECONOMIC_NEWS_ALERT_SETTINGS_KEY]).then((saved) => {
+        if (mounted) setAlertSettings(normalizeEconomicNewsAlertSettings(saved[ECONOMIC_NEWS_ALERT_SETTINGS_KEY]));
+      }).catch((loadError) => {
+        if (mounted) setError(loadError.message);
+      });
+    };
+    const onPreferencesUpdated = (event) => {
+      if (event.detail?.includes(ECONOMIC_NEWS_ALERT_SETTINGS_KEY)) loadAlertSettings();
+    };
+    loadAlertSettings();
+    window.addEventListener(preferencesUpdatedEvent, onPreferencesUpdated);
+    return () => {
+      mounted = false;
+      window.removeEventListener(preferencesUpdatedEvent, onPreferencesUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!nowNY || !clockNow || compact || !alertSettings.enabled) return;
+    const currentMinute = nowNY.slice(0, 16);
+    const previousMinute = lastReleaseScanRef.current;
+    lastReleaseScanRef.current = currentMinute;
+
+    const upcoming = news.filter((item) => {
+      const value = eventValue(item);
+      return !announcedUpcomingRef.current.has(item.id) && minutesUntilEvent(value, currentMinute) === 1;
+    });
+    const released = news.filter((item) => {
+      const value = eventValue(item);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || announcedReleasesRef.current.has(item.id)) return false;
+      if (previousMinute) return value === currentMinute || (value > previousMinute && value < currentMinute);
+      return value === currentMinute;
+    });
+    if (released.length) {
+      released.forEach((item) => announcedReleasesRef.current.add(item.id));
+      const impact = released.reduce((highest, item) => (
+        (priorityRank[item.priority] ?? 99) < (priorityRank[highest] ?? 99) ? item.priority : highest
+      ), released[0].priority);
+      setReleaseAlert({
+        id: `${released.map((item) => item.id).join('-')}-${clockNow}`,
+        phase: 'released',
+        titles: released.map((item) => item.title),
+        impact,
+        releasedAt: currentMinute,
+        dismissSeconds: alertSettings.autoDismissSeconds,
+      });
+      playReleaseSound(alertSettings.soundSeconds);
+    }
+
+    if (!released.length && upcoming.length && releaseAlert?.phase !== 'released') {
+      upcoming.forEach((item) => announcedUpcomingRef.current.add(item.id));
+      const impact = upcoming.reduce((highest, item) => (
+        (priorityRank[item.priority] ?? 99) < (priorityRank[highest] ?? 99) ? item.priority : highest
+      ), upcoming[0].priority);
+      setReleaseAlert({
+        id: `upcoming-${upcoming.map((item) => item.id).join('-')}-${clockNow}`,
+        phase: 'upcoming',
+        titles: upcoming.map((item) => item.title),
+        impact,
+        releasedAt: eventValue(upcoming[0]),
+        dismissSeconds: alertSettings.preReleaseAutoDismissSeconds,
+      });
+      playReleaseSound(preReleaseSoundSeconds);
+    }
+  }, [alertSettings.autoDismissSeconds, alertSettings.enabled, alertSettings.preReleaseAutoDismissSeconds, alertSettings.soundSeconds, clockNow, compact, news, nowNY, playReleaseSound, releaseAlert?.id, releaseAlert?.phase]);
+
+  useEffect(() => {
+    const dismissSeconds = releaseAlert && Object.hasOwn(releaseAlert, 'dismissSeconds')
+      ? releaseAlert.dismissSeconds
+      : alertSettings.autoDismissSeconds;
+    if (!releaseAlert || dismissSeconds === null) return undefined;
+    const timeout = window.setTimeout(() => {
+      stopReleaseSound();
+      setReleaseAlert(null);
+    }, dismissSeconds * 1_000);
+    return () => window.clearTimeout(timeout);
+  }, [releaseAlert?.dismissSeconds, releaseAlert?.id, releaseAlert?.isTest, releaseAlert?.phase, releaseAlert?.sequenceId, alertSettings.autoDismissSeconds, stopReleaseSound]);
+
+  function dismissReleaseAlert() {
+    window.clearTimeout(testSequenceTimeoutRef.current);
+    testSequenceTimeoutRef.current = null;
+    stopReleaseSound();
+    setReleaseAlert(null);
+  }
+
+  async function testReleaseAlert() {
+    await unlockReleaseAudio();
+    window.clearTimeout(testSequenceTimeoutRef.current);
+    testSequenceTimeoutRef.current = null;
+    setReleaseAlert({
+      id: `test-${Date.now()}`,
+      titles: ['CPI m/m'],
+      impact: 'High',
+      releasedAt: nowNY.slice(0, 16),
+      isTest: true,
+      phase: 'released',
+      dismissSeconds: alertSettings.autoDismissSeconds,
+    });
+    playReleaseSound(alertSettings.soundSeconds);
+  }
+
+  async function testBothAlertStages() {
+    await unlockReleaseAudio();
+    window.clearTimeout(testSequenceTimeoutRef.current);
+    const sequenceId = `test-sequence-${Date.now()}`;
+    const delay = preReleaseSoundSeconds * 1_000;
+    const releasedAt = newYorkCurrentDateTime(new Date(Date.now() + delay)).slice(0, 16);
+    const sample = {
+      titles: ['CPI m/m'],
+      impact: 'High',
+      releasedAt,
+      isTest: true,
+      sequenceId,
+      dismissSeconds: alertSettings.preReleaseAutoDismissSeconds,
+    };
+    setReleaseAlert({ ...sample, id: `${sequenceId}-upcoming`, phase: 'upcoming' });
+    playReleaseSound(preReleaseSoundSeconds);
+    testSequenceTimeoutRef.current = window.setTimeout(() => {
+      setReleaseAlert({ ...sample, dismissSeconds: alertSettings.autoDismissSeconds, id: `${sequenceId}-released`, phase: 'released' });
+      playReleaseSound(alertSettings.soundSeconds);
+      testSequenceTimeoutRef.current = null;
+    }, delay);
+  }
+
+  useEffect(() => () => {
+    window.clearTimeout(testSequenceTimeoutRef.current);
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!alertSettings.soundEnabled || !alertSettings.volume) stopReleaseSound();
+  }, [alertSettings.soundEnabled, alertSettings.volume, stopReleaseSound]);
 
   useEffect(() => {
     let mounted = true;
@@ -395,12 +607,90 @@ export default function EconomicNewsCard({ initialNews = [], compact = false, se
       .catch((saveError) => setError(saveError.message));
   }
 
+  const alertDismissSeconds = releaseAlert && Object.hasOwn(releaseAlert, 'dismissSeconds')
+    ? releaseAlert.dismissSeconds
+    : alertSettings.autoDismissSeconds;
+
   return (
     <section className="panel">
       <header className="panel-head">
         <h2 className="panel-title"><span aria-hidden>📰</span> {sectionTitle}</h2>
-        {!compact && <span className="text-[12px] text-muted">Manual events</span>}
+        {!compact && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" className="btn px-2.5 py-1.5 text-[11px]" onClick={testReleaseAlert}>
+              Test release alert
+            </button>
+            <button type="button" className="btn px-2.5 py-1.5 text-[11px]" onClick={testBothAlertStages}>
+              Test both stages
+            </button>
+            <span className="text-[12px] text-muted">Manual events</span>
+          </div>
+        )}
       </header>
+      {releaseAlert && !compact && (
+        <div key={releaseAlert.id} role="alert" aria-live="assertive" className="release-alert-overlay">
+          <section
+            className={`release-alert-panel release-alert-priority-${String(releaseAlert.impact || 'Medium').toLowerCase().replace(/[^a-z]/g, '-')}${alertDismissSeconds === null ? ' release-alert-no-auto-dismiss' : ''}`}
+            style={alertDismissSeconds === null ? undefined : { '--alert-duration': `${alertDismissSeconds}s` }}
+            aria-label="Economic news release"
+          >
+            <div className="release-alert-topline">
+              <div className="release-alert-live"><span className="release-alert-live-dot" />{releaseAlert.isTest ? releaseAlert.phase === 'upcoming' ? 'Test · heads-up' : 'Test · release' : releaseAlert.phase === 'upcoming' ? 'Upcoming news release' : 'Live news release'}</div>
+              <span className="release-alert-region">New York · Economic calendar</span>
+              <button type="button" className="release-alert-dismiss" onClick={dismissReleaseAlert} aria-label="Dismiss news release alert">
+                <LuX className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="release-alert-content">
+              <div className="release-alert-kicker"><LuRadio className="h-4 w-4" aria-hidden="true" />{releaseAlert.phase === 'upcoming' ? 'Scheduled economic release' : 'Economic indicator released'}</div>
+              {releaseAlert.phase === 'upcoming' && (
+                <div className="release-alert-upcoming">
+                  <span>News release in the next minute</span>
+                  <strong>{formatCountdown(releaseAlert.releasedAt, nowNY) || 'Starting now'}</strong>
+                </div>
+              )}
+              <h2 className="release-alert-title">{releaseAlert.titles[0]}</h2>
+              {releaseAlert.titles.length > 1 && (
+                <div className="release-alert-also">
+                  <span>Also released</span>
+                  {releaseAlert.titles.slice(1).map((releaseTitle, index) => (
+                    <p key={`${releaseTitle}-${index}`}>{releaseTitle}</p>
+                  ))}
+                </div>
+              )}
+              <div className="release-alert-details">
+                <div className="release-alert-detail">
+                  <span>Market impact</span>
+                  <strong className={`release-alert-impact release-alert-impact-${String(releaseAlert.impact || 'Medium').toLowerCase().replace(/[^a-z]/g, '-')}`}>
+                    <i />{releaseAlert.impact || 'Medium'}
+                  </strong>
+                </div>
+                <div className="release-alert-detail">
+                  <span>Release time · ET</span>
+                  <strong>{releaseAlert.releasedAt ? `${formatEventDateHeading(releaseAlert.releasedAt.slice(0, 10))} · ${formatEventClockTime(releaseAlert.releasedAt)}` : 'Just now'}</strong>
+                </div>
+              </div>
+              <div className="release-alert-signal" aria-hidden="true">
+                <div className="release-alert-signal-label"><span>Incoming release signal</span><span>LIVE</span></div>
+                <div className="release-alert-waveform">
+                  {Array.from({ length: 38 }, (_, index) => (
+                    <i key={index} style={{ '--signal-index': index, height: `${8 + (index % 6) * 5}px` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="release-alert-footer">
+              <span className="release-alert-audio">
+                <LuClock3 className="h-4 w-4" aria-hidden="true" />
+                {releaseAlert.phase === 'upcoming'
+                  ? alertDismissSeconds === null ? 'Heads-up · manual dismiss' : `Heads-up · ${alertDismissSeconds} sec`
+                  : alertDismissSeconds === null ? 'Manual dismiss' : `Auto-dismiss · ${alertDismissSeconds} sec`}
+              </span>
+              <span>{releaseAlert.phase === 'upcoming' ? `Sound · ${preReleaseSoundSeconds} sec` : 'Dismiss anytime'}</span>
+            </div>
+          </section>
+        </div>
+      )}
       {compact && (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-panel2/20 px-4 py-2 text-[11px]">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
