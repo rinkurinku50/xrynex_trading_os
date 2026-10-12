@@ -771,7 +771,8 @@ export default function EconomicNewsCard({ initialNews = [], compact = false, se
               <div className="ml-1 border-l border-line pl-3">
                 {times.map(({ time, events }) => {
                   const slotAt = `${date}T${time}`;
-                  const slotCountdown = compact && date === nowNY.slice(0, 10) ? formatCountdown(slotAt, nowNY) : '';
+                  const hasBankHoliday = events.some((event) => event.priority === 'Bank holiday');
+                  const slotCountdown = compact && !hasBankHoliday && date === nowNY.slice(0, 10) ? formatCountdown(slotAt, nowNY) : '';
                   return (
                     <section key={time} className="py-2 first:pt-0">
                       <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
