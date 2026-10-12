@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import AccountMenu from '@/components/AccountMenu';
 import { getSession } from '@/lib/auth';
 import { isAdminUser } from '@/lib/api-auth';
+import { getBankHolidayOnDate } from '@/lib/queries';
 import WeeklyCalendarReminder from '@/components/WeeklyCalendarReminder';
 import ConfirmDialogProvider from '@/components/ConfirmDialogProvider';
 import ReminderManager from '@/components/ReminderManager';
@@ -32,6 +33,15 @@ export default async function RootLayout({ children }) {
   const pathname = (await headers()).get('x-pathname') || '/';
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   const session = isAuthPage ? null : await getSession();
+  const todayInNewYork = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const bankHoliday = session
+    ? await getBankHolidayOnDate(session.user.id, todayInNewYork)
+    : null;
 
   if (!isAuthPage && !session) {
     redirect(`/login?next=${encodeURIComponent(pathname)}`);
@@ -55,7 +65,12 @@ export default async function RootLayout({ children }) {
               )}
               <div className={`relative z-10 w-full ${isAuthPage ? 'flex justify-center' : ''}`}>
                 {!isAuthPage && session && <WeeklyCalendarReminder />}
-                {!isAuthPage && session && <AccountMenu user={{ name: session.user.name, email: session.user.email }} />}
+                {!isAuthPage && session && (
+                  <AccountMenu
+                    user={{ name: session.user.name, email: session.user.email }}
+                    bankHolidayDate={bankHoliday?.eventAt?.slice(0, 10) ?? null}
+                  />
+                )}
                 {children}
               </div>
             </main>
