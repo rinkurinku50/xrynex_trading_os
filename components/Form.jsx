@@ -15,7 +15,7 @@ function dateInputValue(value) {
   return match ? match[0] : '';
 }
 
-export function Modal({ open, onClose, title, children, size = 'max-w-lg' }) {
+export function Modal({ open, onClose, title, children, size = 'max-w-lg', dialogStyle, dialogClassName = '', bodyClassName = '', overlayClassName = '' }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children, size = 'max-w-lg' }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 py-10"
+      className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 py-10 ${overlayClassName}`}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -40,13 +40,14 @@ export function Modal({ open, onClose, title, children, size = 'max-w-lg' }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`panel w-full ${size} outline-none`}
+        className={`panel w-full ${size} ${dialogClassName} outline-none`}
+        style={dialogStyle}
       >
         <header className="panel-head">
           <h2 className="panel-title">{title}</h2>
           <button className="btn px-2 py-1" onClick={onClose} aria-label="Close">✕</button>
         </header>
-        <div className="panel-body">{children}</div>
+        <div className={`panel-body ${bodyClassName}`}>{children}</div>
       </div>
     </div>
   );

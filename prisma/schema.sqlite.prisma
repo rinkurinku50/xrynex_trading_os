@@ -79,6 +79,10 @@ model Concept {
   subtitle   String?
   body       String?
   sortOrder  Int      @default(0) @map("sort_order")
+  positionX  Float?   @map("position_x")
+  positionY  Float?   @map("position_y")
+  cardWidth  Int?     @map("card_width")
+  cardHeight Int?     @map("card_height")
   showInNav  Boolean  @default(false) @map("show_in_nav")
   isFavorite Boolean  @default(false) @map("is_favorite")
   icon       String   @default("book")
