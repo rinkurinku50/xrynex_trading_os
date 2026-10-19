@@ -6,7 +6,7 @@ import ConceptRichText from '@/components/ConceptRichText';
 import { DriveVideo } from '@/components/DriveMedia';
 import { fmtDate } from '@/components/ui';
 import { videoOpen } from '@/lib/drive';
-import { LuCalendarDays, LuCirclePlay, LuExternalLink, LuPencil, LuStar, LuTag, LuUserRound } from 'react-icons/lu';
+import { LuBookOpen, LuCalendarDays, LuChevronDown, LuChevronUp, LuCirclePlay, LuExternalLink, LuPencil, LuSearch, LuStar, LuTag, LuUserRound } from 'react-icons/lu';
 
 const fields = [
   { name: 'title', label: 'Title', type: 'text', required: true },
@@ -20,10 +20,21 @@ const fields = [
 export default function VideoNotes({ videos }) {
   const [rows, setRows] = useState(videos);
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [favoriteError, setFavoriteError] = useState('');
   const [savingFavorite, setSavingFavorite] = useState(false);
+  const [search, setSearch] = useState('');
+  const [expandedCards, setExpandedCards] = useState(() => new Set());
 
   useEffect(() => setRows(videos), [videos]);
+
+  const query = search.trim().toLocaleLowerCase();
+  const visibleRows = query
+    ? rows.filter((video) => [video.title, video.creator, video.topic, video.notes]
+      .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query)))
+    : rows;
+  const favoriteRows = visibleRows.filter((video) => video.isFavorite);
+  const otherRows = visibleRows.filter((video) => !video.isFavorite);
 
   async function toggleFavorite(video) {
     if (savingFavorite) return;
@@ -50,8 +61,10 @@ export default function VideoNotes({ videos }) {
       if (!response.ok) throw new Error(result.error || 'Could not update favorite.');
       if (!responseText) throw new Error('The server returned an empty response while saving the favorite.');
       setRows((current) => current.map((row) => row.id === video.id ? result : row));
+      setSelected((current) => current?.id === video.id ? result : current);
     } catch (error) {
       setRows((current) => current.map((row) => row.id === video.id ? video : row));
+      setSelected((current) => current?.id === video.id ? video : current);
       setFavoriteError(error.message);
     } finally {
       setSavingFavorite(false);
@@ -59,89 +72,170 @@ export default function VideoNotes({ videos }) {
   }
 
   function videoCard(video) {
+    const isExpanded = expandedCards.has(video.id);
+    const previewId = `video-notes-preview-${video.id}`;
     return (
-      <article key={video.id} className="group overflow-hidden rounded-xl border border-line bg-panel2/40 transition-colors hover:border-info/40 hover:bg-panel2/70">
-        <div className="relative bg-black">
+      <article key={video.id} className={`knowledge-card video-note-card ${isExpanded ? 'is-expanded' : ''}`}>
+        <div className="video-note-player">
           <DriveVideo url={video.drive_url} title={video.title} />
           <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-[11px] text-white/80">
-            <LuCirclePlay className="h-3.5 w-3.5 text-info" aria-hidden />
-            Video note
+            <LuCirclePlay className="h-3.5 w-3.5 text-info" aria-hidden />Video note
           </div>
         </div>
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-[15px] font-semibold leading-snug text-text">{video.title}</h3>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                aria-label={video.isFavorite ? `Remove ${video.title} from favorites` : `Add ${video.title} to favorites`}
-                aria-pressed={Boolean(video.isFavorite)}
-                title={video.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                disabled={savingFavorite}
-                className={`rounded-md p-1.5 transition hover:bg-ink disabled:cursor-wait disabled:opacity-50 ${video.isFavorite ? 'text-gold' : 'text-muted hover:text-gold'}`}
-                onClick={() => toggleFavorite(video)}
-              >
-                <LuStar className="h-4 w-4" fill={video.isFavorite ? 'currentColor' : 'none'} aria-hidden />
-              </button>
-              {video.drive_url && (
-                <a href={videoOpen(video.drive_url)} target="_blank" rel="noreferrer" title="Open video source" className="rounded-md p-1.5 text-muted hover:bg-ink hover:text-info">
-                  <LuExternalLink className="h-4 w-4" aria-hidden />
-                </a>
-              )}
-              <button type="button" title="Edit video note" className="rounded-md p-1.5 text-muted hover:bg-ink hover:text-info" onClick={() => setSelected(video)}>
-                <LuPencil className="h-4 w-4" aria-hidden />
-              </button>
+        <div className="knowledge-card-top video-note-card-top">
+          <div className="knowledge-card-heading">
+            <button type="button" className="knowledge-card-title" onClick={() => { setSelected(video); setEditing(false); }}>
+              {video.title}
+            </button>
+            <div className="video-note-metadata">
+              {video.creator && <span className="video-note-meta-creator"><LuUserRound aria-hidden />{video.creator}</span>}
+              {video.topic && <span className="video-note-meta-topic"><LuTag aria-hidden />{video.topic}</span>}
+              <span className="video-note-meta-date"><LuCalendarDays aria-hidden />{fmtDate(video.watched_on)}</span>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted">
-            {video.creator && <span className="inline-flex items-center gap-1 rounded-md border border-line bg-ink px-2 py-1"><LuUserRound className="h-3.5 w-3.5 text-info" aria-hidden />{video.creator}</span>}
-            {video.topic && <span className="inline-flex items-center gap-1 rounded-md border border-line bg-ink px-2 py-1"><LuTag className="h-3.5 w-3.5 text-gold" aria-hidden />{video.topic}</span>}
-            <span className="inline-flex items-center gap-1 rounded-md border border-line bg-ink px-2 py-1"><LuCalendarDays className="h-3.5 w-3.5 text-win" aria-hidden />{fmtDate(video.watched_on)}</span>
-          </div>
-          {video.notes && <div className="mt-4 border-l-2 border-info/50 pl-3"><div className="label">Notes</div><ConceptRichText body={video.notes} className="mt-1 line-clamp-4 text-[13px] leading-relaxed text-text/85" /></div>}
-          <div className="mt-4 flex justify-end border-t border-line pt-3">
+          <button
+            type="button"
+            aria-label={video.isFavorite ? `Remove ${video.title} from favorites` : `Add ${video.title} to favorites`}
+            aria-pressed={Boolean(video.isFavorite)}
+            title={video.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            disabled={savingFavorite}
+            className={`knowledge-card-favorite ${video.isFavorite ? 'is-favorite' : ''}`}
+            onClick={() => toggleFavorite(video)}
+          >
+            <LuStar className="h-4 w-4" fill={video.isFavorite ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        </div>
+        <div id={previewId} className={`knowledge-card-preview video-note-preview ${isExpanded ? 'is-expanded' : ''}`}>
+          {video.notes
+            ? <ConceptRichText body={video.notes} />
+            : <p className="knowledge-card-empty">No notes added yet.</p>}
+        </div>
+        <div className="knowledge-card-actions">
+          <button type="button" className="knowledge-card-open" onClick={() => { setSelected(video); setEditing(false); }}>
+            <LuBookOpen aria-hidden />Open notes
+          </button>
+          <div className="video-card-actions">
+            {video.drive_url && (
+              <a href={videoOpen(video.drive_url)} target="_blank" rel="noreferrer" aria-label={`Open ${video.title} source`} title="Open video source">
+                <LuExternalLink aria-hidden />
+              </a>
+            )}
+            <button type="button" className="video-card-edit" aria-label={`Edit ${video.title}`} title="Edit video note" onClick={() => { setSelected(video); setEditing(true); }}>
+              <LuPencil aria-hidden />
+            </button>
             <DeleteButton endpoint={`/api/videos/${video.id}`} />
           </div>
+          <button
+            type="button"
+            className="knowledge-card-expand"
+            aria-expanded={isExpanded}
+            aria-controls={previewId}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${video.title} notes preview`}
+            title={`${isExpanded ? 'Collapse' : 'Expand'} preview`}
+            onClick={() => {
+              if (isExpanded) document.getElementById(previewId)?.scrollTo({ top: 0 });
+              setExpandedCards((current) => {
+                const next = new Set(current);
+                if (next.has(video.id)) next.delete(video.id);
+                else next.add(video.id);
+                return next;
+              });
+            }}
+          >
+            {isExpanded ? <LuChevronUp aria-hidden /> : <LuChevronDown aria-hidden />}
+          </button>
         </div>
       </article>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="knowledge-base space-y-6">
       {favoriteError && <p role="alert" className="rounded-lg border border-loss/30 bg-loss/10 px-3 py-2 text-[13px] text-loss">{favoriteError}</p>}
-      <section aria-labelledby="video-favorites-heading">
-        <div className="mb-3 flex items-center gap-2">
-          <LuStar className="h-4 w-4 text-gold" fill="currentColor" aria-hidden />
-          <h2 id="video-favorites-heading" className="text-[15px] font-semibold text-text">Favorites</h2>
+      <div className="knowledge-toolbar">
+        <div className="knowledge-search">
+          <LuSearch aria-hidden />
+          <label className="sr-only" htmlFor="video-notes-search">Search video notes</label>
+          <input id="video-notes-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search video notes" />
+          {search && <button type="button" onClick={() => setSearch('')} aria-label="Clear search">×</button>}
         </div>
-        {rows.some((video) => video.isFavorite) ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.filter((video) => video.isFavorite).map(videoCard)}</div>
+        <p className="knowledge-total">{visibleRows.length} {visibleRows.length === 1 ? 'video' : 'videos'}</p>
+      </div>
+      <section aria-labelledby="video-favorites-heading">
+        <div className="knowledge-section-heading">
+          <LuStar className="h-4 w-4 text-gold" fill="currentColor" aria-hidden />
+          <h2 id="video-favorites-heading">Favorites</h2>
+          <span className="knowledge-count">{favoriteRows.length}</span>
+        </div>
+        {favoriteRows.length ? (
+          <div className="knowledge-grid">{favoriteRows.map(videoCard)}</div>
+        ) : query ? (
+          <p className="knowledge-empty">No favorite videos match “{search.trim()}”.</p>
         ) : (
-          <p className="rounded-lg border border-dashed border-line px-4 py-3 text-[12px] text-muted">Favorite a video with the star to keep it here.</p>
+          <p className="knowledge-empty">Favorite a video note to keep it close at hand.</p>
         )}
       </section>
 
-      <section aria-labelledby="video-all-heading" className="border-t border-line pt-6">
-        <h2 id="video-all-heading" className="mb-3 text-[15px] font-semibold text-text">All videos</h2>
-        {rows.some((video) => !video.isFavorite) ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.filter((video) => !video.isFavorite).map(videoCard)}</div>
+      <section aria-labelledby="video-all-heading">
+        <div className="knowledge-section-heading">
+          <h2 id="video-all-heading">All videos</h2>
+          <span className="knowledge-count">{otherRows.length}</span>
+        </div>
+        {otherRows.length ? (
+          <div className="knowledge-grid">{otherRows.map(videoCard)}</div>
+        ) : query ? (
+          <p className="knowledge-empty">No other videos match “{search.trim()}”.</p>
+        ) : rows.length ? (
+          <p className="knowledge-empty">All video notes are in Favorites.</p>
         ) : (
-          <p className="rounded-lg border border-dashed border-line px-4 py-3 text-[12px] text-muted">All video notes are in Favorites.</p>
+          <p className="knowledge-empty">No video notes yet.</p>
         )}
       </section>
 
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} size="max-w-4xl" title="Edit video note">
-        {selected && (
+      <Modal
+        open={Boolean(selected)}
+        onClose={() => { setSelected(null); setEditing(false); }}
+        size="max-w-4xl"
+        title={editing ? 'Edit video note' : 'Video note'}
+      >
+        {selected && editing ? (
           <RecordForm
             endpoint={`/api/videos/${selected.id}`}
             fields={fields}
             initial={selected}
             method="PATCH"
             submitLabel="Save changes"
-            onDone={() => setSelected(null)}
+            onDone={(updated) => {
+              setSelected(null);
+              setEditing(false);
+              setRows((current) => current.map((row) => row.id === updated.id ? updated : row));
+            }}
           />
-        )}
+        ) : selected ? (
+          <div className="knowledge-detail">
+            <header className="knowledge-detail-heading">
+              <span className="knowledge-detail-icon"><LuCirclePlay className="h-6 w-6 text-info" aria-hidden /></span>
+              <div className="min-w-0">
+                <p className="knowledge-detail-kicker">READ-ONLY VIDEO NOTES</p>
+                <h2>{selected.title}</h2>
+                <p className="knowledge-detail-subtitle">{[selected.creator, selected.topic, fmtDate(selected.watched_on)].filter(Boolean).join(' · ')}</p>
+              </div>
+            </header>
+            {selected.drive_url && <div className="video-detail-player"><DriveVideo url={selected.drive_url} title={selected.title} /></div>}
+            <article className="knowledge-detail-content">
+              <ConceptRichText body={selected.notes} className="knowledge-detail-richtext" />
+            </article>
+            <div className="knowledge-detail-footer">
+              <DeleteButton endpoint={`/api/videos/${selected.id}`} onDone={() => { setSelected(null); setEditing(false); }} />
+              <div className="knowledge-detail-actions">
+                <button type="button" className="btn" onClick={() => toggleFavorite(selected)}>
+                  {selected.isFavorite ? '★ Favorited' : '☆ Add favorite'}
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>Edit notes</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </div>
   );

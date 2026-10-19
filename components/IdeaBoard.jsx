@@ -6,6 +6,7 @@ import { Badge, Empty, fmtDate } from './ui';
 import { Modal, RecordForm, DeleteButton } from './Form';
 import { fieldSets } from './NewButton';
 import SelectMenu from '@/components/SelectMenu';
+import { LuPencil } from 'react-icons/lu';
 
 const STATUSES = ['All', 'Open', 'Testing', 'Done', 'Dropped'];
 
@@ -13,6 +14,7 @@ export default function IdeaBoard({ ideas, title, icon, defaultTag = 'Idea' }) {
   const router = useRouter();
   const [filter, setFilter] = useState('All');
   const [open, setOpen] = useState(false);
+  const [editingIdea, setEditingIdea] = useState(null);
   const [error, setError] = useState('');
 
   const shown = filter === 'All' ? ideas : ideas.filter((i) => i.status === filter);
@@ -39,6 +41,7 @@ export default function IdeaBoard({ ideas, title, icon, defaultTag = 'Idea' }) {
   const fields = fieldSets.idea().map((f) =>
     f.name === 'tag' ? { ...f, default: defaultTag } : f
   );
+  const editFields = [...fields, { name: 'idea_date', label: 'Date', type: 'date', required: true }];
 
   return (
     <div className="space-y-5">
@@ -105,7 +108,7 @@ export default function IdeaBoard({ ideas, title, icon, defaultTag = 'Idea' }) {
                       <p className="text-[14px] font-medium text-text">{i.title}</p>
                       <Badge>{i.tag}</Badge>
                     </div>
-                    <p className="mt-1 truncate text-[12px] text-muted">{i.note || 'No note added yet.'}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[12px] text-muted">{i.note || 'No note added yet.'}</p>
                   </div>
                   <div className="flex w-full items-center justify-between gap-3 border-t border-line/70 pt-3 sm:w-auto sm:border-t-0 sm:pt-0">
                     <span className="font-mono text-[11px] text-muted">{fmtDate(i.idea_date)}</span>
@@ -117,6 +120,18 @@ export default function IdeaBoard({ ideas, title, icon, defaultTag = 'Idea' }) {
                         label={`Status for ${i.title}`}
                         className="w-[120px] max-w-[42vw]"
                       />
+                      <button
+                        type="button"
+                        className="btn px-2.5"
+                        aria-label={`Edit ${i.title}`}
+                        title="Edit idea"
+                        onClick={() => {
+                          setError('');
+                          setEditingIdea(i);
+                        }}
+                      >
+                        <LuPencil className="h-4 w-4" aria-hidden />
+                      </button>
                       <DeleteButton endpoint={`/api/ideas/${i.id}`} />
                     </div>
                   </div>
@@ -129,8 +144,26 @@ export default function IdeaBoard({ ideas, title, icon, defaultTag = 'Idea' }) {
         </div>
       </section>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={defaultTag === 'Question' ? 'New question' : 'New idea'}>
-        <RecordForm endpoint="/api/ideas" fields={fields} submitLabel="Save" onDone={() => setOpen(false)} />
+      <Modal
+        open={open || Boolean(editingIdea)}
+        onClose={() => {
+          setOpen(false);
+          setEditingIdea(null);
+        }}
+        title={editingIdea ? `Edit ${defaultTag === 'Question' ? 'question' : 'idea'}` : defaultTag === 'Question' ? 'New question' : 'New idea'}
+      >
+        <RecordForm
+          key={editingIdea?.id ?? 'new-idea'}
+          endpoint={editingIdea ? `/api/ideas/${editingIdea.id}` : '/api/ideas'}
+          fields={editingIdea ? editFields : fields}
+          initial={editingIdea ? { ...editingIdea, idea_date: editingIdea.idea_date } : {}}
+          method={editingIdea ? 'PATCH' : 'POST'}
+          submitLabel={editingIdea ? 'Save changes' : 'Save'}
+          onDone={() => {
+            setOpen(false);
+            setEditingIdea(null);
+          }}
+        />
       </Modal>
     </div>
   );
