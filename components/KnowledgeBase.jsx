@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { DeleteButton, Modal, RecordForm } from '@/components/Form';
 import ConceptIcon, { conceptIconOptions } from '@/components/ConceptIcon';
 import ConceptRichText from '@/components/ConceptRichText';
-import { LuStar } from 'react-icons/lu';
+import { LuBookOpen, LuChevronDown, LuChevronUp, LuSearch, LuStar } from 'react-icons/lu';
 
 const fields = [
   { name: 'name', label: 'Name', type: 'text', required: true },
@@ -21,8 +21,18 @@ export default function KnowledgeBase({ concepts }) {
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [expandedCards, setExpandedCards] = useState(() => new Set());
 
   useEffect(() => setRows(concepts), [concepts]);
+
+  const query = search.trim().toLocaleLowerCase();
+  const visibleRows = query
+    ? rows.filter((concept) => [concept.name, concept.subtitle, concept.body]
+      .some((value) => typeof value === 'string' && value.toLocaleLowerCase().includes(query)))
+    : rows;
+  const favoriteRows = visibleRows.filter((concept) => concept.isFavorite);
+  const otherRows = visibleRows.filter((concept) => !concept.isFavorite);
 
   async function toggleFavorite(concept) {
     const isFavorite = !concept.isFavorite;
@@ -47,31 +57,61 @@ export default function KnowledgeBase({ concepts }) {
   }
 
   function conceptCard(concept) {
+    const isExpanded = expandedCards.has(concept.id);
+    const previewId = `concept-preview-${concept.id}`;
     return (
       <article
         key={concept.id}
         id={slug(concept.name)}
-        className="scroll-mt-6 rounded-lg border border-line bg-panel2/40 p-4 transition hover:border-win/60 hover:bg-panel2"
+        className={`knowledge-card scroll-mt-6 ${isExpanded ? 'is-expanded' : ''}`}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <button type="button" className="block text-left" onClick={() => setSelected(concept)}>
-              <h3 className="flex items-center gap-2 text-[14px] font-semibold text-text">
-                <ConceptIcon icon={concept.icon} />{concept.name}
-              </h3>
-              <p className="text-[12px] text-muted">{concept.subtitle || 'Open to view details.'}</p>
+        <div className="knowledge-card-top">
+          <span className="knowledge-card-icon"><ConceptIcon icon={concept.icon} className="h-5 w-5" /></span>
+          <div className="knowledge-card-heading">
+            <button type="button" className="knowledge-card-title" onClick={() => setSelected(concept)}>
+              {concept.name}
             </button>
-            {concept.body && <ConceptRichText body={concept.body} className="mt-2 line-clamp-3 text-[13px] text-text/85" />}
+            <p className="knowledge-card-subtitle">{concept.subtitle || 'Knowledge note'}</p>
           </div>
           <button
             type="button"
             aria-label={concept.isFavorite ? `Remove ${concept.name} from favorites` : `Add ${concept.name} to favorites`}
             aria-pressed={Boolean(concept.isFavorite)}
             title={concept.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            className={`rounded-md p-2 transition hover:bg-ink ${concept.isFavorite ? 'text-gold' : 'text-muted hover:text-gold'}`}
+            className={`knowledge-card-favorite ${concept.isFavorite ? 'is-favorite' : ''}`}
             onClick={() => toggleFavorite(concept)}
           >
             <LuStar className="h-4 w-4" fill={concept.isFavorite ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        </div>
+        <div id={previewId} className={`knowledge-card-preview ${isExpanded ? 'is-expanded' : ''}`}>
+          {concept.body
+            ? <ConceptRichText body={concept.body} />
+            : <p className="knowledge-card-empty">No notes yet. Open this entry to add details.</p>}
+        </div>
+        <div className="knowledge-card-actions">
+          <button type="button" className="knowledge-card-open" onClick={() => setSelected(concept)}>
+            <LuBookOpen aria-hidden />
+            Open notes
+          </button>
+          <button
+            type="button"
+            className="knowledge-card-expand"
+            aria-expanded={isExpanded}
+            aria-controls={previewId}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${concept.name} preview`}
+            title={`${isExpanded ? 'Collapse' : 'Expand'} preview`}
+            onClick={() => {
+              if (isExpanded) document.getElementById(previewId)?.scrollTo({ top: 0 });
+              setExpandedCards((current) => {
+                const next = new Set(current);
+                if (next.has(concept.id)) next.delete(concept.id);
+                else next.add(concept.id);
+                return next;
+              });
+            }}
+          >
+            {isExpanded ? <LuChevronUp aria-hidden /> : <LuChevronDown aria-hidden />}
           </button>
         </div>
       </article>
@@ -84,30 +124,62 @@ export default function KnowledgeBase({ concepts }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="knowledge-base space-y-6">
       {error && <p role="alert" className="rounded-lg border border-loss/30 bg-loss/10 px-3 py-2 text-[13px] text-loss">{error}</p>}
-      <section aria-labelledby="concept-favorites-heading">
-        <div className="mb-3 flex items-center gap-2">
-          <LuStar className="h-4 w-4 text-gold" fill="currentColor" aria-hidden />
-          <h2 id="concept-favorites-heading" className="text-[15px] font-semibold text-text">Favorites</h2>
+      <div className="knowledge-toolbar">
+        <div className="knowledge-search">
+          <LuSearch aria-hidden />
+          <label className="sr-only" htmlFor="knowledge-search-input">Search concepts</label>
+          <input
+            id="knowledge-search-input"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search concepts and notes"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} aria-label="Clear search">×</button>
+          )}
         </div>
-        {rows.some((concept) => concept.isFavorite) ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{rows.filter((concept) => concept.isFavorite).map(conceptCard)}</div>
+        <p className="knowledge-total">{visibleRows.length} {visibleRows.length === 1 ? 'concept' : 'concepts'}</p>
+      </div>
+      <section aria-labelledby="concept-favorites-heading">
+        <div className="knowledge-section-heading">
+          <LuStar className="h-4 w-4 text-gold" fill="currentColor" aria-hidden />
+          <h2 id="concept-favorites-heading">Favorites</h2>
+          <span className="knowledge-count">{favoriteRows.length}</span>
+        </div>
+        {favoriteRows.length ? (
+          <div className="knowledge-grid">{favoriteRows.map(conceptCard)}</div>
+        ) : query ? (
+          <p className="knowledge-empty">No favorites match “{search.trim()}”.</p>
         ) : (
-          <p className="rounded-lg border border-dashed border-line px-4 py-3 text-[12px] text-muted">Favorite a concept with the star to keep it here.</p>
+          <p className="knowledge-empty">Star a concept to keep it close at hand.</p>
         )}
       </section>
 
       <section aria-labelledby="concept-all-heading">
-        <h2 id="concept-all-heading" className="mb-3 text-[15px] font-semibold text-text">All concepts</h2>
-        {rows.length ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{rows.filter((concept) => !concept.isFavorite).map(conceptCard)}</div>
+        <div className="knowledge-section-heading">
+          <h2 id="concept-all-heading">All concepts</h2>
+          <span className="knowledge-count">{otherRows.length}</span>
+        </div>
+        {otherRows.length ? (
+          <div className="knowledge-grid">{otherRows.map(conceptCard)}</div>
+        ) : query ? (
+          <p className="knowledge-empty">No other concepts match “{search.trim()}”.</p>
+        ) : rows.length ? (
+          <p className="knowledge-empty">All concepts are in your favorites.</p>
         ) : (
-          <p className="text-[13px] text-muted">Nothing in the knowledge base yet.</p>
+          <p className="knowledge-empty">Nothing in the knowledge base yet.</p>
         )}
       </section>
 
-      <Modal open={Boolean(selected)} onClose={close} size={editing ? 'max-w-4xl' : 'max-w-lg'} title={editing ? `Edit ${selected?.name}` : selected?.name || 'Concept details'}>
+      <Modal
+        open={Boolean(selected)}
+        onClose={close}
+        size="max-w-4xl"
+        title={editing ? `Edit ${selected?.name}` : 'Knowledge base notes'}
+      >
         {selected && editing ? (
           <RecordForm
             endpoint={`/api/concepts/${selected.id}`}
@@ -121,19 +193,26 @@ export default function KnowledgeBase({ concepts }) {
             }}
           />
         ) : selected ? (
-          <div className="space-y-5">
-            <div>
-              <p className="text-[13px] uppercase tracking-wide text-muted">{selected.subtitle || 'Knowledge base entry'}</p>
-              <ConceptRichText body={selected.body} className="mt-3 text-[14px] leading-7 text-text/90" />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          <div className="knowledge-detail">
+            <header className="knowledge-detail-heading">
+              <span className="knowledge-detail-icon"><ConceptIcon icon={selected.icon} className="h-6 w-6" /></span>
+              <div className="min-w-0">
+                <p className="knowledge-detail-kicker">READ-ONLY NOTES</p>
+                <h2>{selected.name}</h2>
+                <p className="knowledge-detail-subtitle">{selected.subtitle || 'Knowledge base entry'}</p>
+              </div>
+            </header>
+            <article className="knowledge-detail-content">
+              <ConceptRichText body={selected.body} className="knowledge-detail-richtext" />
+            </article>
+            <div className="knowledge-detail-footer">
               <DeleteButton endpoint={`/api/concepts/${selected.id}`} label="Delete concept" onDone={close} />
-              <div className="flex items-center gap-2">
+              <div className="knowledge-detail-actions">
                 <button type="button" className="btn" onClick={() => toggleFavorite(selected)}>
                   {selected.isFavorite ? '★ Favorited' : '☆ Add favorite'}
                 </button>
                 <button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>
-                  Edit concept
+                  Edit notes
                 </button>
               </div>
             </div>
